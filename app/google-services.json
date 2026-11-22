@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "612573026211",
+    "project_id": "dktechshop-c8bdb",
+    "storage_bucket": "dktechshop-c8bdb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:612573026211:android:a62b179311da674678ac16",
+        "android_client_info": {
+          "package_name": "com.ecommerce.dktechshop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAq1lcwLHiimxXnbG-vrACk0RNNbddI_78"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

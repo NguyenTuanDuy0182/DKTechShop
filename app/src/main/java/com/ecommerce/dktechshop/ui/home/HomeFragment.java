@@ -1,0 +1,142 @@
+package com.ecommerce.dktechshop.ui.home;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.ecommerce.dktechshop.MainActivity;
+import com.ecommerce.dktechshop.R;
+import com.ecommerce.dktechshop.data.model.Product;
+import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.ui.detail.ProductDetailActivity;
+import com.ecommerce.dktechshop.ui.search.SearchActivity;
+import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.chip.ChipGroup;
+
+import java.util.List;
+
+public class HomeFragment extends Fragment implements MockRepository.OnDataChangeListener {
+
+    private ProductGridAdapter adapter;
+    private TextView tvSectionTitle;
+    private String currentCategory = "all";
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.fragment_home, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        TextView tvGreetingName = view.findViewById(R.id.tv_greeting_name);
+        MaterialButton btnProfile = view.findViewById(R.id.btn_home_profile);
+        MaterialCardView cardSearch = view.findViewById(R.id.card_search_trigger);
+        MaterialCardView cardPromo = view.findViewById(R.id.card_promo_banner);
+        ChipGroup chipGroup = view.findViewById(R.id.chip_group_category);
+        tvSectionTitle = view.findViewById(R.id.tv_section_title);
+        RecyclerView rvProducts = view.findViewById(R.id.rv_products_grid);
+
+        tvGreetingName.setText(MockRepository.getInstance().getCurrentUser().getName());
+
+        btnProfile.setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).navigateToTab(R.id.nav_profile);
+            }
+        });
+
+        cardSearch.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), SearchActivity.class);
+            startActivity(intent);
+        });
+
+        cardPromo.setOnClickListener(v -> {
+            Intent intent = new Intent(requireContext(), ProductDetailActivity.class);
+            intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT_ID, "prod_logi_gpx2");
+            startActivity(intent);
+        });
+
+        adapter = new ProductGridAdapter(new ProductGridAdapter.OnProductClickListener() {
+            @Override
+            public void onProductClick(Product product) {
+                Intent intent = new Intent(requireContext(), ProductDetailActivity.class);
+                intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT_ID, product.getId());
+                startActivity(intent);
+            }
+
+            @Override
+            public void onQuickAddClick(Product product) {
+                MockRepository.getInstance().addToCart(product, product.getVariants().get(0), 1);
+                Toast.makeText(requireContext(), "Đã thêm " + product.getName() + " vào giỏ!", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        rvProducts.setLayoutManager(new GridLayoutManager(requireContext(), 2));
+        rvProducts.setAdapter(adapter);
+
+        chipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.contains(R.id.chip_mouse)) {
+                currentCategory = "mouse";
+            } else if (checkedIds.contains(R.id.chip_headphone)) {
+                currentCategory = "headphone";
+            } else if (checkedIds.contains(R.id.chip_keyboard)) {
+                currentCategory = "keyboard";
+            } else if (checkedIds.contains(R.id.chip_under35)) {
+                currentCategory = "under35";
+            } else {
+                currentCategory = "all";
+            }
+            updateProductList();
+        });
+
+        updateProductList();
+        MockRepository.getInstance().addListener(this);
+    }
+
+    private void updateProductList() {
+        List<Product> list = MockRepository.getInstance().filterProducts(currentCategory);
+        adapter.setProducts(list);
+        if (tvSectionTitle != null) {
+            tvSectionTitle.setText("Thiết bị nổi bật (" + list.size() + ")");
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        View v = getView();
+        if (v != null) {
+            TextView tvGreetingName = v.findViewById(R.id.tv_greeting_name);
+            if (tvGreetingName != null) {
+                tvGreetingName.setText(MockRepository.getInstance().getCurrentUser().getName());
+            }
+        }
+        updateProductList();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        MockRepository.getInstance().removeListener(this);
+    }
+
+    @Override
+    public void onDataChanged() {
+        if (isAdded()) {
+            updateProductList();
+        }
+    }
+}
