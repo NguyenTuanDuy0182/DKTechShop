@@ -15,9 +15,13 @@ import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class OrderRepository {
@@ -73,6 +77,14 @@ public class OrderRepository {
 
         String uid = user.getUid();
         order.setUserId(uid);
+
+        if (order.getRecipientName() == null || order.getRecipientName().trim().isEmpty()) {
+            if (user.getDisplayName() != null && !user.getDisplayName().trim().isEmpty()) {
+                order.setRecipientName(user.getDisplayName());
+            } else {
+                order.setRecipientName("Khách hàng");
+            }
+        }
 
         if (order.getOrderId() == null || order.getOrderId().trim().isEmpty()) {
             order.setOrderId("TG-2026-" + (1000 + (int) (Math.random() * 9000)));
@@ -151,12 +163,11 @@ public class OrderRepository {
         }
 
         String currentUserId = user.getUid();
+        // Không dùng orderBy trong query Firestore để tránh lỗi thiếu Composite Index (FAILED_PRECONDITION)
         return mFirestore.collection("orders")
                 .whereEqualTo("userId", currentUserId)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
                 .addSnapshotListener((snapshots, e) -> {
                     if (e != null) {
-                        // Fallback: nếu query cần index hoặc gặp lỗi, truy vấn subcollection users/{uid}/orders
                         listenOrdersFallback(currentUserId, callback);
                         return;
                     }
@@ -177,6 +188,7 @@ public class OrderRepository {
                     if (list.isEmpty()) {
                         listenOrdersFallback(currentUserId, callback);
                     } else {
+                        sortOrdersByDateDesc(list);
                         if (callback != null) callback.onSuccess(list);
                     }
                 });
@@ -211,9 +223,29 @@ public class OrderRepository {
                     if (subList.isEmpty()) {
                         if (callback != null) callback.onSuccess(MockRepository.getInstance().getOrders());
                     } else {
+                        sortOrdersByDateDesc(subList);
                         if (callback != null) callback.onSuccess(subList);
                     }
                 });
+    }
+
+    private void sortOrdersByDateDesc(List<Order> list) {
+        if (list == null || list.size() <= 1) return;
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy • HH:mm", Locale.getDefault());
+        list.sort((o1, o2) -> {
+            try {
+                if (o1.getCreatedAt() != null && o2.getCreatedAt() != null) {
+                    Date d1 = sdf.parse(o1.getCreatedAt());
+                    Date d2 = sdf.parse(o2.getCreatedAt());
+                    if (d1 != null && d2 != null) {
+                        return d2.compareTo(d1);
+                    }
+                }
+            } catch (Exception ignored) {}
+            String s1 = o1.getCreatedAt() != null ? o1.getCreatedAt() : "";
+            String s2 = o2.getCreatedAt() != null ? o2.getCreatedAt() : "";
+            return s2.compareTo(s1);
+        });
     }
 
     /**
@@ -276,14 +308,16 @@ public class OrderRepository {
 
         WriteBatch batch = mFirestore.batch();
         DocumentReference rootOrderRef = mFirestore.collection("orders").document(orderId);
-        batch.update(rootOrderRef, "status", newStatus);
+        Map<String, Object> update = new HashMap<>();
+        update.put("status", newStatus);
+        batch.set(rootOrderRef, update, SetOptions.merge());
 
         if (!uid.isEmpty()) {
             DocumentReference userOrderRef = mFirestore.collection("users")
                     .document(uid)
                     .collection("orders")
                     .document(orderId);
-            batch.update(userOrderRef, "status", newStatus);
+            batch.set(userOrderRef, update, SetOptions.merge());
         }
 
         batch.commit()

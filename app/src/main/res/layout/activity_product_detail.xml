@@ -42,16 +42,6 @@
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_detail_favorite"
-                style="@style/Widget.Material3.Button.IconButton"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                app:icon="@drawable/ic_favorite_border"
-                app:iconSize="22dp"
-                app:iconTint="@color/md_theme_light_onSurfaceVariant"
-                android:contentDescription="Favorite" />
-
             <FrameLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content">
@@ -83,15 +73,20 @@
             </FrameLayout>
         </LinearLayout>
 
-        <!-- Scrollable Details -->
-        <androidx.core.widget.NestedScrollView
+        <!-- Scrollable Details with SwipeRefreshLayout -->
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipe_refresh_product_detail"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:paddingStart="16dp"
-            android:paddingTop="12dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="20dp">
+            android:layout_weight="1">
+
+            <androidx.core.widget.NestedScrollView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingStart="16dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="20dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -349,8 +344,123 @@
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
+                <!-- Customer Reviews Section -->
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="16dp"
+                    app:cardCornerRadius="18dp"
+                    app:cardElevation="0dp"
+                    app:strokeWidth="1dp"
+                    app:strokeColor="@color/md_theme_light_outlineVariant"
+                    app:cardBackgroundColor="@color/md_theme_light_surfaceContainerLowest">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <!-- Review Header -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Đánh giá từ khách hàng"
+                                    android:textColor="@color/md_theme_light_onSurface"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold" />
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <ImageView
+                                        android:layout_width="16dp"
+                                        android:layout_height="16dp"
+                                        android:src="@drawable/ic_star"
+                                        android:contentDescription="Star" />
+
+                                    <TextView
+                                        android:id="@+id/tv_reviews_summary_rating"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="4dp"
+                                        android:text="5.0"
+                                        android:textColor="@color/md_theme_light_onSurface"
+                                        android:textSize="13sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tv_reviews_summary_count"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="4dp"
+                                        android:text="• 0 đánh giá"
+                                        android:textColor="@color/md_theme_light_onSurfaceVariant"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btn_write_review"
+                                style="@style/Widget.DKTechShop.Button.OutlinedPill"
+                                android:layout_width="wrap_content"
+                                android:layout_height="38dp"
+                                android:paddingStart="14dp"
+                                android:paddingEnd="14dp"
+                                android:text="Viết đánh giá"
+                                android:textSize="12sp"
+                                android:textColor="@color/md_theme_light_primary" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginTop="12dp"
+                            android:layout_marginBottom="8dp"
+                            android:background="@color/md_theme_light_surfaceContainerHigh" />
+
+                        <!-- Empty Review State -->
+                        <TextView
+                            android:id="@+id/tv_reviews_empty"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:paddingTop="12dp"
+                            android:paddingBottom="12dp"
+                            android:gravity="center"
+                            android:text="Chưa có đánh giá nào. Hãy là người đầu tiên mua và đánh giá sản phẩm này!"
+                            android:textColor="@color/md_theme_light_onSurfaceVariant"
+                            android:textSize="12sp" />
+
+                        <!-- Reviews Container -->
+                        <LinearLayout
+                            android:id="@+id/layout_reviews_list_container"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
             </LinearLayout>
         </androidx.core.widget.NestedScrollView>
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
         <!-- Bottom Action Bar -->
         <LinearLayout

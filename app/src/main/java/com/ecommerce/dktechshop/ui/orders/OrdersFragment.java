@@ -15,6 +15,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
@@ -35,6 +36,7 @@ public class OrdersFragment extends Fragment {
     private OrderViewModel orderViewModel;
     private OrderAdapter adapter;
     private RecyclerView rvOrders;
+    private SwipeRefreshLayout swipeRefreshOrders;
     private LinearLayout layoutEmptyOrders;
     private ProgressBar progressOrders;
 
@@ -50,9 +52,23 @@ public class OrdersFragment extends Fragment {
 
         ChipGroup chipGroup = view.findViewById(R.id.chip_group_order_status);
         rvOrders = view.findViewById(R.id.rv_orders);
+        swipeRefreshOrders = view.findViewById(R.id.swipe_refresh_orders);
         layoutEmptyOrders = view.findViewById(R.id.layout_empty_orders);
         progressOrders = view.findViewById(R.id.progress_orders);
         MaterialButton btnShopNow = view.findViewById(R.id.btn_shop_now);
+
+        if (swipeRefreshOrders != null) {
+            swipeRefreshOrders.setColorSchemeResources(
+                    R.color.md_theme_light_primary,
+                    R.color.green_accent,
+                    R.color.md_theme_light_error
+            );
+            swipeRefreshOrders.setOnRefreshListener(() -> {
+                if (orderViewModel != null) {
+                    orderViewModel.startListeningOrders();
+                }
+            });
+        }
 
         orderViewModel = new ViewModelProvider(this).get(OrderViewModel.class);
 
@@ -141,6 +157,9 @@ public class OrdersFragment extends Fragment {
 
         // Quan sát dữ liệu đơn hàng thật từ Firestore qua OrderViewModel
         orderViewModel.getFilteredOrders().observe(getViewLifecycleOwner(), orders -> {
+            if (swipeRefreshOrders != null) {
+                swipeRefreshOrders.setRefreshing(false);
+            }
             adapter.setOrders(orders);
             boolean isEmpty = (orders == null || orders.isEmpty());
             rvOrders.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
@@ -148,8 +167,12 @@ public class OrdersFragment extends Fragment {
         });
 
         orderViewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            boolean loading = Boolean.TRUE.equals(isLoading);
             if (progressOrders != null) {
-                progressOrders.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+                progressOrders.setVisibility(loading && (swipeRefreshOrders == null || !swipeRefreshOrders.isRefreshing()) ? View.VISIBLE : View.GONE);
+            }
+            if (!loading && swipeRefreshOrders != null) {
+                swipeRefreshOrders.setRefreshing(false);
             }
         });
 

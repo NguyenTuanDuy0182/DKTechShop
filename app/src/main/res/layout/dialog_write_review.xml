@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardCornerRadius="24dp"
+    app:cardElevation="6dp"
+    app:strokeWidth="0dp"
+    app:cardBackgroundColor="@color/md_theme_light_surfaceContainerLowest">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:id="@+id/tv_review_dialog_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Đánh giá sản phẩm"
+            android:textColor="@color/md_theme_light_onSurface"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_review_product_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Tên sản phẩm"
+            android:textColor="@color/md_theme_light_onSurfaceVariant"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_review_product_variant"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Phân loại: Mặc định"
+            android:textColor="@color/md_theme_light_onSurfaceVariant"
+            android:textSize="11sp" />
+
+        <!-- Star Rating Interactive Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/iv_star_1"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_margin="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="4dp"
+                android:src="@drawable/ic_star"
+                android:contentDescription="1 sao" />
+
+            <ImageView
+                android:id="@+id/iv_star_2"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_margin="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="4dp"
+                android:src="@drawable/ic_star"
+                android:contentDescription="2 sao" />
+
+            <ImageView
+                android:id="@+id/iv_star_3"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_margin="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="4dp"
+                android:src="@drawable/ic_star"
+                android:contentDescription="3 sao" />
+
+            <ImageView
+                android:id="@+id/iv_star_4"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_margin="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="4dp"
+                android:src="@drawable/ic_star"
+                android:contentDescription="4 sao" />
+
+            <ImageView
+                android:id="@+id/iv_star_5"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_margin="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="4dp"
+                android:src="@drawable/ic_star"
+                android:contentDescription="5 sao" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_star_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:text="5.0 ★ Tuyệt vời"
+            android:textColor="#F59E0B"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <!-- Comment Input -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Nội dung đánh giá"
+            android:textColor="@color/md_theme_light_onSurfaceVariant"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/et_review_comment"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_banner_gradient"
+            android:backgroundTint="@color/md_theme_light_surfaceContainer"
+            android:gravity="top|start"
+            android:hint="Hãy chia sẻ cảm nhận của bạn về chất lượng sản phẩm, trải nghiệm sử dụng để giúp người mua khác nhé..."
+            android:inputType="textMultiLine|textCapSentences"
+            android:lines="4"
+            android:padding="12dp"
+            android:textColor="@color/md_theme_light_onSurface"
+            android:textColorHint="@color/md_theme_light_outline"
+            android:textSize="13sp" />
+
+        <!-- Action Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:gravity="end"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_cancel_review"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:layout_marginEnd="8dp"
+                android:text="Hủy"
+                android:textColor="@color/md_theme_light_onSurfaceVariant" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_submit_review"
+                style="@style/Widget.DKTechShop.Button.Pill"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:text="Gửi đánh giá"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

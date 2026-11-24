@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
@@ -32,6 +33,7 @@ public class SearchActivity extends AppCompatActivity {
     private MaterialButton btnClear;
     private TextView tvSearchCount;
     private LinearLayout layoutEmpty;
+    private SwipeRefreshLayout swipeRefresh;
     private RecyclerView rvSearchResults;
     private ProductSearchAdapter adapter;
     private ShopViewModel viewModel;
@@ -50,7 +52,18 @@ public class SearchActivity extends AppCompatActivity {
         MaterialButtonToggleGroup toggleSort = findViewById(R.id.toggle_sort);
         tvSearchCount = findViewById(R.id.tv_search_count);
         layoutEmpty = findViewById(R.id.layout_search_empty);
+        swipeRefresh = findViewById(R.id.swipe_refresh_search);
         rvSearchResults = findViewById(R.id.rv_search_results);
+
+        if (swipeRefresh != null) {
+            swipeRefresh.setColorSchemeResources(R.color.md_theme_light_primary);
+            swipeRefresh.setOnRefreshListener(() -> {
+                viewModel.loadProducts();
+                swipeRefresh.postDelayed(() -> {
+                    if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+                }, 800);
+            });
+        }
 
         adapter = new ProductSearchAdapter(product -> {
             Intent intent = new Intent(this, ProductDetailActivity.class);
@@ -67,6 +80,7 @@ public class SearchActivity extends AppCompatActivity {
 
         viewModel = new ViewModelProvider(this).get(ShopViewModel.class);
         viewModel.getProducts().observe(this, products -> {
+            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
             currentResults = new ArrayList<>(products);
             applySortAndDisplay();
         });

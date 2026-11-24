@@ -20,6 +20,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
@@ -37,6 +38,7 @@ public class ProfileFragment extends Fragment {
     private TextView tvEmail;
     private TextView tvPhone;
     private TextView tvTier;
+    private SwipeRefreshLayout swipeRefreshProfile;
 
     // Accordions
     private LinearLayout layoutExpandedAddress;
@@ -78,6 +80,19 @@ public class ProfileFragment extends Fragment {
         tvEmail = view.findViewById(R.id.tv_profile_email);
         tvPhone = view.findViewById(R.id.tv_profile_phone);
         tvTier = view.findViewById(R.id.tv_profile_tier);
+        swipeRefreshProfile = view.findViewById(R.id.swipe_refresh_profile);
+        if (swipeRefreshProfile != null) {
+            swipeRefreshProfile.setColorSchemeResources(R.color.md_theme_light_primary);
+            swipeRefreshProfile.setOnRefreshListener(() -> {
+                authViewModel.loadCurrentUser();
+                authViewModel.loadAddresses();
+                swipeRefreshProfile.postDelayed(() -> {
+                    if (swipeRefreshProfile != null) {
+                        swipeRefreshProfile.setRefreshing(false);
+                    }
+                }, 800);
+            });
+        }
         TextView btnEditNameTrigger = view.findViewById(R.id.btn_profile_edit_name_trigger);
 
         LinearLayout menuItemOrders = view.findViewById(R.id.menu_item_orders);
@@ -171,6 +186,9 @@ public class ProfileFragment extends Fragment {
 
     private void observeViewModel() {
         authViewModel.getCurrentUser().observe(getViewLifecycleOwner(), user -> {
+            if (swipeRefreshProfile != null) {
+                swipeRefreshProfile.setRefreshing(false);
+            }
             if (user != null) {
                 tvName.setText(user.getName());
                 tvEmail.setText(user.getEmail());

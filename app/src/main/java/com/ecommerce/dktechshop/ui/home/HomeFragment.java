@@ -14,6 +14,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
@@ -39,6 +40,7 @@ public class HomeFragment extends Fragment {
     private ShopViewModel viewModel;
     private CircularProgressIndicator progressLoading;
     private RecyclerView rvProducts;
+    private SwipeRefreshLayout swipeRefreshHome;
     private CartViewModel cartViewModel;
     private AuthViewModel authViewModel;
 
@@ -64,6 +66,20 @@ public class HomeFragment extends Fragment {
         tvSectionTitle = view.findViewById(R.id.tv_section_title);
         rvProducts = view.findViewById(R.id.rv_products_grid);
         progressLoading = view.findViewById(R.id.progress_loading);
+        swipeRefreshHome = view.findViewById(R.id.swipe_refresh_home);
+
+        if (swipeRefreshHome != null) {
+            swipeRefreshHome.setColorSchemeResources(
+                    R.color.md_theme_light_primary,
+                    R.color.green_accent,
+                    R.color.md_theme_light_error
+            );
+            swipeRefreshHome.setOnRefreshListener(() -> {
+                if (viewModel != null) {
+                    viewModel.loadProducts();
+                }
+            });
+        }
 
         // Hiển thị ngay tên người dùng từ Firebase Auth (nếu có cache) hoặc
         // MockRepository
@@ -119,6 +135,9 @@ public class HomeFragment extends Fragment {
         viewModel = new ViewModelProvider(this).get(ShopViewModel.class);
 
         viewModel.getProducts().observe(getViewLifecycleOwner(), list -> {
+            if (swipeRefreshHome != null) {
+                swipeRefreshHome.setRefreshing(false);
+            }
             adapter.setProducts(list);
             if (tvSectionTitle != null) {
                 tvSectionTitle.setText("Thiết bị nổi bật (" + (list != null ? list.size() : 0) + ")");
@@ -128,10 +147,13 @@ public class HomeFragment extends Fragment {
         viewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
             boolean loading = Boolean.TRUE.equals(isLoading);
             if (progressLoading != null) {
-                progressLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
+                progressLoading.setVisibility(loading && (swipeRefreshHome == null || !swipeRefreshHome.isRefreshing()) ? View.VISIBLE : View.GONE);
             }
             if (rvProducts != null) {
-                rvProducts.setVisibility(loading ? View.GONE : View.VISIBLE);
+                rvProducts.setVisibility(loading && (swipeRefreshHome == null || !swipeRefreshHome.isRefreshing()) ? View.GONE : View.VISIBLE);
+            }
+            if (!loading && swipeRefreshHome != null) {
+                swipeRefreshHome.setRefreshing(false);
             }
         });
 

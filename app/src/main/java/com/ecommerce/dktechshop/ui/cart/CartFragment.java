@@ -17,6 +17,7 @@ import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
@@ -35,6 +36,7 @@ public class CartFragment extends Fragment {
     private TextView tvUserInfo;
     private TextView tvAddressDetail;
     private CartAdapter adapter;
+    private SwipeRefreshLayout swipeRefreshCart;
     private NestedScrollView scrollContent;
     private LinearLayout layoutEmpty;
     private LinearLayout layoutCheckoutBar;
@@ -70,6 +72,22 @@ public class CartFragment extends Fragment {
         tvUserInfo = view.findViewById(R.id.tv_cart_user_info);
         tvAddressDetail = view.findViewById(R.id.tv_cart_address_detail);
         RecyclerView rvCart = view.findViewById(R.id.rv_cart_items);
+
+        swipeRefreshCart = view.findViewById(R.id.swipe_refresh_cart);
+        if (swipeRefreshCart != null) {
+            swipeRefreshCart.setColorSchemeResources(R.color.md_theme_light_primary);
+            swipeRefreshCart.setOnRefreshListener(() -> {
+                cartViewModel.startListeningCart();
+                authViewModel.loadCurrentUser();
+                authViewModel.loadAddresses();
+                updateAddressUI();
+                swipeRefreshCart.postDelayed(() -> {
+                    if (swipeRefreshCart != null) {
+                        swipeRefreshCart.setRefreshing(false);
+                    }
+                }, 800);
+            });
+        }
 
         scrollContent = view.findViewById(R.id.scroll_cart_content);
         layoutEmpty = view.findViewById(R.id.layout_cart_empty);
@@ -141,7 +159,28 @@ public class CartFragment extends Fragment {
                 targetAddress = new Address("", "Mặc định", MockRepository.getInstance().getDefaultAddressDetail(), true);
             }
 
-            cartViewModel.checkout(targetAddress, selectedPayment);
+            String recipientName = "";
+            String recipientPhone = "";
+            com.ecommerce.dktechshop.data.model.User u = authViewModel.getCurrentUser().getValue();
+            if (u != null) {
+                recipientName = u.getName();
+                recipientPhone = u.getPhone();
+            }
+            if (recipientName == null || recipientName.trim().isEmpty()) {
+                com.google.firebase.auth.FirebaseUser fbUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                if (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty()) {
+                    recipientName = fbUser.getDisplayName();
+                } else {
+                    recipientName = MockRepository.getInstance().getCurrentUser().getName();
+                }
+            }
+            if (targetAddress.getPhone() != null && !targetAddress.getPhone().trim().isEmpty()) {
+                recipientPhone = targetAddress.getPhone().trim();
+            } else if (recipientPhone == null || recipientPhone.trim().isEmpty()) {
+                recipientPhone = MockRepository.getInstance().getCurrentUser().getPhone();
+            }
+
+            cartViewModel.checkout(targetAddress, selectedPayment, recipientName, recipientPhone);
         });
 
         observeViewModel();
@@ -186,6 +225,9 @@ public class CartFragment extends Fragment {
     private void observeViewModel() {
         // Lắng nghe danh sách cartItems từ CartViewModel (Realtime Firestore)
         cartViewModel.getCartItems().observe(getViewLifecycleOwner(), items -> {
+            if (swipeRefreshCart != null) {
+                swipeRefreshCart.setRefreshing(false);
+            }
             adapter.setCartItems(items);
 
             int count = 0;

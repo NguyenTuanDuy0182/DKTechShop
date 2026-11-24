@@ -17,6 +17,7 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
@@ -24,12 +25,17 @@ import com.ecommerce.dktechshop.data.model.CartItem;
 import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.OrderItem;
 import com.ecommerce.dktechshop.data.model.Product;
+import com.ecommerce.dktechshop.data.model.User;
 import com.ecommerce.dktechshop.data.repository.CartRepository;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.ecommerce.dktechshop.data.repository.OrderRepository;
+import com.ecommerce.dktechshop.ui.detail.ReviewDialogHelper;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
 public class OrderDetailActivity extends AppCompatActivity {
@@ -39,6 +45,7 @@ public class OrderDetailActivity extends AppCompatActivity {
 
     private Order currentOrder;
     private ListenerRegistration orderListenerRegistration;
+    private SwipeRefreshLayout swipeRefresh;
 
     private TextView tvToolbarOrderId;
     private TextView tvTopStatusPill;
@@ -49,6 +56,7 @@ public class OrderDetailActivity extends AppCompatActivity {
     private TextView tvOrderIdValue;
     private TextView tvOrderCreatedAt;
     private TextView tvRecipientName;
+    private TextView tvRecipientPhone;
     private TextView tvShippingAddress;
     private TextView tvPaymentMethod;
     private TextView tvPaymentDesc;
@@ -83,15 +91,43 @@ public class OrderDetailActivity extends AppCompatActivity {
         // Lắng nghe cập nhật đơn hàng theo thời gian thực từ Firestore
         if (orderId != null && !orderId.trim().isEmpty()) {
             final String finalOrderId = orderId;
+            if (swipeRefresh != null) {
+                swipeRefresh.setColorSchemeResources(R.color.md_theme_light_primary);
+                swipeRefresh.setOnRefreshListener(() -> {
+                    if (orderListenerRegistration != null) {
+                        orderListenerRegistration.remove();
+                    }
+                    orderListenerRegistration = OrderRepository.getInstance().listenSingleOrder(finalOrderId, new OrderRepository.OrderCallback() {
+                        @Override
+                        public void onSuccess(Order order) {
+                            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+                            currentOrder = order;
+                            bindOrder(order);
+                        }
+
+                        @Override
+                        public void onFailure(String error) {
+                            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+                            Toast.makeText(OrderDetailActivity.this, "Lỗi tải đơn hàng: " + error, Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                    swipeRefresh.postDelayed(() -> {
+                        if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+                    }, 1000);
+                });
+            }
+
             orderListenerRegistration = OrderRepository.getInstance().listenSingleOrder(orderId, new OrderRepository.OrderCallback() {
                 @Override
                 public void onSuccess(Order order) {
+                    if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
                     currentOrder = order;
                     bindOrder(order);
                 }
 
                 @Override
                 public void onFailure(String error) {
+                    if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
                     if (currentOrder == null) {
                         Toast.makeText(OrderDetailActivity.this, "Lỗi tải đơn hàng: " + error, Toast.LENGTH_SHORT).show();
                     }
@@ -101,6 +137,7 @@ public class OrderDetailActivity extends AppCompatActivity {
     }
 
     private void initViews() {
+        swipeRefresh = findViewById(R.id.swipe_refresh_order_detail);
         ImageButton btnBack = findViewById(R.id.btn_back);
         tvToolbarOrderId = findViewById(R.id.tv_toolbar_order_id);
         tvTopStatusPill = findViewById(R.id.tv_top_status_pill);
@@ -112,6 +149,7 @@ public class OrderDetailActivity extends AppCompatActivity {
         ImageButton btnCopyOrderId = findViewById(R.id.btn_copy_order_id);
         tvOrderCreatedAt = findViewById(R.id.tv_order_created_at);
         tvRecipientName = findViewById(R.id.tv_recipient_name);
+        tvRecipientPhone = findViewById(R.id.tv_recipient_phone);
         tvShippingAddress = findViewById(R.id.tv_shipping_address);
         tvPaymentMethod = findViewById(R.id.tv_payment_method);
         tvPaymentDesc = findViewById(R.id.tv_payment_desc);
@@ -148,10 +186,75 @@ public class OrderDetailActivity extends AppCompatActivity {
         tvOrderIdValue.setText("#" + order.getOrderId());
         tvOrderCreatedAt.setText(order.getCreatedAt());
 
+        // Hiển thị tên người nhận
+        String recipientName = order.getRecipientName();
+        if (recipientName == null || recipientName.trim().isEmpty()) {
+            FirebaseUser fbUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty()) {
+                recipientName = fbUser.getDisplayName();
+            } else {
+                User u = MockRepository.getInstance().getCurrentUser();
+                if (u != null && u.getName() != null && !u.getName().trim().isEmpty()) {
+                    recipientName = u.getName();
+                } else {
+                    recipientName = "Khách hàng";
+                }
+            }
+        }
+        tvRecipientName.setText("Người nhận: " + recipientName);
+
+        // Hiển thị số điện thoại người nhận
+        String recipientPhone = order.getRecipientPhone();
+        if (recipientPhone == null || recipientPhone.trim().isEmpty()) {
+            User u = MockRepository.getInstance().getCurrentUser();
+            if (u != null && u.getPhone() != null && !u.getPhone().trim().isEmpty()) {
+                recipientPhone = u.getPhone();
+            }
+        }
+        if (recipientPhone != null && !recipientPhone.trim().isEmpty()) {
+            tvRecipientPhone.setVisibility(View.VISIBLE);
+            tvRecipientPhone.setText("Số điện thoại: " + recipientPhone.trim());
+        } else {
+            tvRecipientPhone.setVisibility(View.GONE);
+        }
+
+        // Tự động đồng bộ tên và SĐT nếu đơn hàng cũ trên Firestore chưa lưu trực tiếp
+        String orderUserId = order.getUserId();
+        if ((order.getRecipientName() == null || order.getRecipientName().trim().isEmpty()
+                || order.getRecipientPhone() == null || order.getRecipientPhone().trim().isEmpty())) {
+            if (orderUserId == null || orderUserId.trim().isEmpty()) {
+                FirebaseUser cur = FirebaseAuth.getInstance().getCurrentUser();
+                if (cur != null) orderUserId = cur.getUid();
+            }
+            if (orderUserId != null && !orderUserId.trim().isEmpty()) {
+                FirebaseFirestore.getInstance().collection("users").document(orderUserId).get()
+                        .addOnSuccessListener(doc -> {
+                            if (doc != null && doc.exists()) {
+                                String dbName = doc.getString("name");
+                                String dbPhone = doc.getString("phone");
+                                if ((order.getRecipientName() == null || order.getRecipientName().trim().isEmpty())
+                                        && dbName != null && !dbName.trim().isEmpty()) {
+                                    tvRecipientName.setText("Người nhận: " + dbName);
+                                }
+                                if ((order.getRecipientPhone() == null || order.getRecipientPhone().trim().isEmpty())
+                                        && dbPhone != null && !dbPhone.trim().isEmpty()) {
+                                    tvRecipientPhone.setVisibility(View.VISIBLE);
+                                    tvRecipientPhone.setText("Số điện thoại: " + dbPhone.trim());
+                                }
+                            }
+                        });
+            }
+        }
+
+        // Hiển thị địa chỉ giao nhận
         String address = (order.getShippingAddress() != null && !order.getShippingAddress().trim().isEmpty())
-                ? order.getShippingAddress()
+                ? order.getShippingAddress().trim()
                 : "227 Nguyễn Văn Cừ, Phường 4, Quận 5, TP. Hồ Chí Minh";
-        tvShippingAddress.setText(address);
+        if (!address.toLowerCase().startsWith("địa chỉ:")) {
+            tvShippingAddress.setText("Địa chỉ: " + address);
+        } else {
+            tvShippingAddress.setText(address);
+        }
 
         String payment = (order.getPaymentMethod() != null && !order.getPaymentMethod().trim().isEmpty())
                 ? order.getPaymentMethod()
@@ -266,9 +369,12 @@ public class OrderDetailActivity extends AppCompatActivity {
     }
 
     private View createOrderItemView(OrderItem item) {
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(0, 6, 0, 6);
+
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setPadding(0, 6, 0, 6);
 
         LinearLayout textCol = new LinearLayout(this);
         textCol.setOrientation(LinearLayout.VERTICAL);
@@ -305,7 +411,65 @@ public class OrderDetailActivity extends AppCompatActivity {
         tvItemTotal.setTypeface(null, android.graphics.Typeface.BOLD);
         row.addView(tvItemTotal);
 
-        return row;
+        container.addView(row);
+
+        // Hiển thị nút "★ Đánh giá sản phẩm" nếu đơn hàng đã giao thành công
+        String status = (currentOrder != null && currentOrder.getStatus() != null) ? currentOrder.getStatus().trim() : "";
+        if ("Đã giao".equalsIgnoreCase(status) || "Hoàn thành".equalsIgnoreCase(status)) {
+            LinearLayout actionRow = new LinearLayout(this);
+            actionRow.setOrientation(LinearLayout.HORIZONTAL);
+            actionRow.setGravity(android.view.Gravity.END);
+            actionRow.setPadding(0, 8, 0, 0);
+
+            MaterialButton btnReview = new MaterialButton(this);
+            int h = (int) (36 * getResources().getDisplayMetrics().density);
+            LinearLayout.LayoutParams lpBtn = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, h);
+            btnReview.setLayoutParams(lpBtn);
+            btnReview.setTextSize(11);
+            btnReview.setCornerRadius((int) (18 * getResources().getDisplayMetrics().density));
+            btnReview.setPadding(24, 0, 24, 0);
+
+            if (item.isReviewed()) {
+                btnReview.setText("✓ Đã đánh giá");
+                btnReview.setEnabled(false);
+                btnReview.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_onSurfaceVariant));
+                btnReview.setBackgroundColor(ContextCompat.getColor(this, R.color.md_theme_light_surfaceContainerHigh));
+            } else {
+                btnReview.setText("★ Đánh giá sản phẩm");
+                btnReview.setEnabled(true);
+                btnReview.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_primary));
+                btnReview.setStrokeColorResource(R.color.md_theme_light_primary);
+                btnReview.setStrokeWidth(1);
+                btnReview.setBackgroundColor(ContextCompat.getColor(this, R.color.md_theme_light_primaryContainer));
+
+                btnReview.setOnClickListener(v -> {
+                    String pId = item.getProductId();
+                    if (pId == null || pId.trim().isEmpty()) {
+                        for (Product prod : MockRepository.getInstance().getProducts()) {
+                            if (prod.getName().equalsIgnoreCase(item.getProductName())) {
+                                pId = prod.getId();
+                                break;
+                            }
+                        }
+                        if (pId == null || pId.trim().isEmpty()) pId = "prod_custom";
+                    }
+
+                    ReviewDialogHelper.showReviewDialog(this, pId, item.getProductName(), item.getVariant(), currentOrder, review -> {
+                        item.setReviewed(true);
+                        btnReview.setText("✓ Đã đánh giá");
+                        btnReview.setEnabled(false);
+                        btnReview.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_onSurfaceVariant));
+                        btnReview.setBackgroundColor(ContextCompat.getColor(this, R.color.md_theme_light_surfaceContainerHigh));
+                        btnReview.setStrokeWidth(0);
+                    });
+                });
+            }
+
+            actionRow.addView(btnReview);
+            container.addView(actionRow);
+        }
+
+        return container;
     }
 
     private void handleCancelOrder() {

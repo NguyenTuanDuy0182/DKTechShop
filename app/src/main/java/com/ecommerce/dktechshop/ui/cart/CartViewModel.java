@@ -228,6 +228,10 @@ public class CartViewModel extends ViewModel {
      * Tạo đơn hàng, giảm tồn kho và dọn sạch giỏ hàng trên Firestore.
      */
     public void checkout(Address shippingAddress, String paymentMethod) {
+        checkout(shippingAddress, paymentMethod, "", "");
+    }
+
+    public void checkout(Address shippingAddress, String paymentMethod, String recipientName, String recipientPhone) {
         List<CartItem> items = cartItems.getValue();
         if (items == null || items.isEmpty()) {
             errorMessage.setValue("Giỏ hàng của bạn đang trống");
@@ -237,6 +241,10 @@ public class CartViewModel extends ViewModel {
         String addressDetail = (shippingAddress != null && shippingAddress.getDetail() != null && !shippingAddress.getDetail().trim().isEmpty())
                 ? shippingAddress.getDetail()
                 : "Địa chỉ nhận hàng";
+
+        if ((recipientPhone == null || recipientPhone.trim().isEmpty()) && shippingAddress != null && shippingAddress.getPhone() != null) {
+            recipientPhone = shippingAddress.getPhone();
+        }
 
         String payment = (paymentMethod != null && !paymentMethod.trim().isEmpty())
                 ? paymentMethod
@@ -266,6 +274,8 @@ public class CartViewModel extends ViewModel {
                 "Đang xử lý",
                 payment,
                 addressDetail,
+                recipientName != null ? recipientName : "",
+                recipientPhone != null ? recipientPhone : "",
                 total,
                 orderItems
         );

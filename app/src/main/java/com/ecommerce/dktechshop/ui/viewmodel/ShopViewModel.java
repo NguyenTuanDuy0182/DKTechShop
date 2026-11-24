@@ -4,7 +4,9 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
+import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.Product;
+import com.ecommerce.dktechshop.data.model.Review;
 import com.ecommerce.dktechshop.data.repository.ProductRepository;
 
 import java.util.ArrayList;
@@ -18,6 +20,9 @@ public class ShopViewModel extends ViewModel {
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
     private final MutableLiveData<Product> selectedProduct = new MutableLiveData<>();
     private final MutableLiveData<Boolean> isFavorite = new MutableLiveData<>(false);
+    private final MutableLiveData<List<Review>> reviews = new MutableLiveData<>(new ArrayList<>());
+    private final MutableLiveData<Boolean> isEligibleToReview = new MutableLiveData<>(false);
+    private final MutableLiveData<Boolean> reviewSubmitted = new MutableLiveData<>(false);
     private List<Product> masterProducts = new ArrayList<>();
 
     public ShopViewModel() {
@@ -155,5 +160,68 @@ public class ShopViewModel extends ViewModel {
             }
         }
         products.setValue(filtered);
+    }
+
+    public LiveData<List<Review>> getReviews() {
+        return reviews;
+    }
+
+    public LiveData<Boolean> getIsEligibleToReview() {
+        return isEligibleToReview;
+    }
+
+    public LiveData<Boolean> getReviewSubmitted() {
+        return reviewSubmitted;
+    }
+
+    public void loadReviews(String productId) {
+        repository.getReviews(productId, new ProductRepository.Callback<List<Review>>() {
+            @Override
+            public void onSuccess(List<Review> result) {
+                reviews.setValue(result);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                reviews.setValue(new ArrayList<>());
+            }
+        });
+    }
+
+    public void checkPurchaseEligibility(String productId) {
+        repository.checkUserPurchasedProduct(productId, new ProductRepository.Callback<Boolean>() {
+            @Override
+            public void onSuccess(Boolean result) {
+                isEligibleToReview.setValue(result);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                isEligibleToReview.setValue(false);
+            }
+        });
+    }
+
+    public void submitReview(Review review, Order order, Runnable onSuccess, Runnable onError) {
+        isLoading.setValue(true);
+        repository.addReview(review, order, new ProductRepository.Callback<Void>() {
+            @Override
+            public void onSuccess(Void result) {
+                isLoading.setValue(false);
+                reviewSubmitted.setValue(true);
+                loadReviews(review.getProductId());
+                if (review.getProductId() != null) {
+                    loadProductById(review.getProductId());
+                }
+                if (onSuccess != null) onSuccess.run();
+            }
+
+            @Override
+            public void onError(Exception e) {
+                isLoading.setValue(false);
+                errorMessage.setValue(e.getMessage());
+                if (onError != null) onError.run();
+            }
+        });
     }
 }

@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -14,21 +15,26 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.model.ProductVariant;
+import com.ecommerce.dktechshop.data.model.Review;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.data.repository.ProductRepository;
 import com.ecommerce.dktechshop.ui.cart.CartViewModel;
 import com.ecommerce.dktechshop.ui.viewmodel.ShopViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.tabs.TabLayout;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ProductDetailActivity extends AppCompatActivity {
@@ -37,10 +43,12 @@ public class ProductDetailActivity extends AppCompatActivity {
     public static final String EXTRA_PRODUCT_ID = "extra_product_id";
 
     private Product product;
-    private MaterialButton btnFavorite;
     private TextView tvCartBadge;
     private CartViewModel cartViewModel;
     private ShopViewModel shopViewModel;
+    private SwipeRefreshLayout swipeRefresh;
+    private TextView tvReviewsEmpty;
+    private LinearLayout layoutReviewsListContainer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,14 +58,39 @@ public class ProductDetailActivity extends AppCompatActivity {
         shopViewModel = new ViewModelProvider(this).get(ShopViewModel.class);
         cartViewModel = new ViewModelProvider(this).get(CartViewModel.class);
 
+        swipeRefresh = findViewById(R.id.swipe_refresh_product_detail);
+        if (swipeRefresh != null) {
+            swipeRefresh.setColorSchemeResources(R.color.md_theme_light_primary);
+            swipeRefresh.setOnRefreshListener(() -> {
+                String prodId = (product != null) ? product.getId() : getIntent().getStringExtra(EXTRA_PRODUCT_ID);
+                if (prodId != null && !prodId.trim().isEmpty()) {
+                    shopViewModel.loadProductById(prodId);
+                    shopViewModel.loadReviews(prodId);
+                }
+                swipeRefresh.postDelayed(() -> {
+                    if (swipeRefresh != null) {
+                        swipeRefresh.setRefreshing(false);
+                    }
+                }, 800);
+            });
+        }
+
         shopViewModel.getSelectedProduct().observe(this, p -> {
+            if (swipeRefresh != null) {
+                swipeRefresh.setRefreshing(false);
+            }
             if (p != null) {
                 this.product = p;
                 setupViews();
             }
         });
 
-        shopViewModel.getIsFavorite().observe(this, this::updateFavoriteIcon);
+        shopViewModel.getReviews().observe(this, reviews -> {
+            if (swipeRefresh != null) {
+                swipeRefresh.setRefreshing(false);
+            }
+            renderReviews(reviews);
+        });
 
         Product extraProduct;
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -80,7 +113,6 @@ public class ProductDetailActivity extends AppCompatActivity {
         if (product == null) return;
 
         MaterialButton btnBack = findViewById(R.id.btn_detail_back);
-        btnFavorite = findViewById(R.id.btn_detail_favorite);
         MaterialButton btnCart = findViewById(R.id.btn_detail_cart);
         tvCartBadge = findViewById(R.id.tv_detail_cart_badge);
 
@@ -158,12 +190,6 @@ public class ProductDetailActivity extends AppCompatActivity {
 
         btnBack.setOnClickListener(v -> finish());
 
-        btnFavorite.setOnClickListener(v -> {
-            if (product != null) {
-                shopViewModel.toggleFavorite(product.getId());
-            }
-        });
-
         btnCart.setOnClickListener(v -> {
             Intent intent = new Intent(this, MainActivity.class);
             intent.putExtra("navigate_tab", R.id.nav_cart);
@@ -226,18 +252,56 @@ public class ProductDetailActivity extends AppCompatActivity {
 
         btnAddToCart.setOnClickListener(v -> openVariantSheet(false));
         btnBuyNow.setOnClickListener(v -> openVariantSheet(true));
-    }
 
-    private void updateFavoriteIcon(Boolean fav) {
-        boolean isFav = Boolean.TRUE.equals(fav);
-        if (btnFavorite == null) return;
-        if (isFav) {
-            btnFavorite.setIconResource(R.drawable.ic_favorite);
-            btnFavorite.setIconTint(ContextCompat.getColorStateList(this, R.color.md_theme_light_error));
-        } else {
-            btnFavorite.setIconResource(R.drawable.ic_favorite_border);
-            btnFavorite.setIconTint(ContextCompat.getColorStateList(this, R.color.md_theme_light_onSurfaceVariant));
+        // Thiết lập khu vực Đánh giá từ khách hàng
+        TextView tvReviewsSummaryRating = findViewById(R.id.tv_reviews_summary_rating);
+        TextView tvReviewsSummaryCount = findViewById(R.id.tv_reviews_summary_count);
+        MaterialButton btnWriteReview = findViewById(R.id.btn_write_review);
+        tvReviewsEmpty = findViewById(R.id.tv_reviews_empty);
+        layoutReviewsListContainer = findViewById(R.id.layout_reviews_list_container);
+
+        if (tvReviewsSummaryRating != null) {
+            tvReviewsSummaryRating.setText(String.valueOf(product.getRating()));
         }
+        if (tvReviewsSummaryCount != null) {
+            tvReviewsSummaryCount.setText("• " + product.getReviewCount() + " đánh giá");
+        }
+
+        if (btnWriteReview != null) {
+            btnWriteReview.setOnClickListener(v -> {
+                ProductRepository.getInstance().checkUserPurchasedProduct(product.getId(), new ProductRepository.Callback<Boolean>() {
+                    @Override
+                    public void onSuccess(Boolean purchased) {
+                        if (Boolean.TRUE.equals(purchased)) {
+                            ReviewDialogHelper.showReviewDialog(
+                                    ProductDetailActivity.this,
+                                    product.getId(),
+                                    product.getName(),
+                                    "",
+                                    null,
+                                    review -> {
+                                        shopViewModel.loadReviews(product.getId());
+                                        shopViewModel.loadProductById(product.getId());
+                                    }
+                            );
+                        } else {
+                            new MaterialAlertDialogBuilder(ProductDetailActivity.this)
+                                    .setTitle("Chưa thể đánh giá")
+                                    .setMessage("Bạn chỉ có thể viết đánh giá sau khi đã đặt mua và nhận hàng thành công sản phẩm này.")
+                                    .setPositiveButton("Đã hiểu", null)
+                                    .show();
+                        }
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Toast.makeText(ProductDetailActivity.this, "Không thể kiểm tra điều kiện đánh giá", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            });
+        }
+
+        shopViewModel.loadReviews(product.getId());
     }
 
     private void openVariantSheet(boolean isBuyNow) {
@@ -287,6 +351,64 @@ public class ProductDetailActivity extends AppCompatActivity {
             row.addView(tvVal);
             container.addView(row);
             idx++;
+        }
+    }
+
+    private void renderReviews(List<Review> reviewList) {
+        if (layoutReviewsListContainer == null) return;
+        layoutReviewsListContainer.removeAllViews();
+
+        if (reviewList == null || reviewList.isEmpty()) {
+            if (tvReviewsEmpty != null) tvReviewsEmpty.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        if (tvReviewsEmpty != null) tvReviewsEmpty.setVisibility(View.GONE);
+
+        for (Review r : reviewList) {
+            View itemView = LayoutInflater.from(this).inflate(R.layout.item_review, layoutReviewsListContainer, false);
+
+            TextView tvAvatarLetter = itemView.findViewById(R.id.tv_review_avatar_letter);
+            TextView tvUserName = itemView.findViewById(R.id.tv_review_user_name);
+            TextView tvDate = itemView.findViewById(R.id.tv_review_date);
+            TextView tvVariant = itemView.findViewById(R.id.tv_review_variant);
+            TextView tvComment = itemView.findViewById(R.id.tv_review_comment);
+
+            ImageView[] stars = new ImageView[]{
+                    itemView.findViewById(R.id.iv_item_star_1),
+                    itemView.findViewById(R.id.iv_item_star_2),
+                    itemView.findViewById(R.id.iv_item_star_3),
+                    itemView.findViewById(R.id.iv_item_star_4),
+                    itemView.findViewById(R.id.iv_item_star_5)
+            };
+
+            String name = r.getUserName() != null && !r.getUserName().trim().isEmpty() ? r.getUserName().trim() : "Khách hàng";
+            tvUserName.setText(name);
+            if (!name.isEmpty()) {
+                tvAvatarLetter.setText(name.substring(0, 1).toUpperCase());
+            }
+
+            tvDate.setText(r.getCreatedAt());
+
+            if (r.getVariant() != null && !r.getVariant().trim().isEmpty()) {
+                tvVariant.setText("Phân loại: " + r.getVariant().trim());
+                tvVariant.setVisibility(View.VISIBLE);
+            } else {
+                tvVariant.setVisibility(View.GONE);
+            }
+
+            tvComment.setText(r.getComment());
+
+            int starCount = Math.round(r.getRating());
+            for (int i = 0; i < 5; i++) {
+                if (i < starCount) {
+                    stars[i].setImageResource(R.drawable.ic_star);
+                } else {
+                    stars[i].setImageResource(R.drawable.ic_star_outline);
+                }
+            }
+
+            layoutReviewsListContainer.addView(itemView);
         }
     }
 }

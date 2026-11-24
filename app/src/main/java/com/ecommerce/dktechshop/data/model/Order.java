@@ -11,6 +11,8 @@ public class Order implements Serializable {
     private String status = "Đang xử lý";
     private String paymentMethod = "COD";
     private String shippingAddress = "";
+    private String recipientName = "";
+    private String recipientPhone = "";
     private long totalAmount = 0L;
     private List<OrderItem> items = new ArrayList<>();
 
@@ -19,17 +21,25 @@ public class Order implements Serializable {
 
     public Order(String orderId, String createdAt, String status, String paymentMethod,
                  String shippingAddress, long totalAmount, List<OrderItem> items) {
-        this(orderId, "", createdAt, status, paymentMethod, shippingAddress, totalAmount, items);
+        this(orderId, "", createdAt, status, paymentMethod, shippingAddress, "", "", totalAmount, items);
     }
 
     public Order(String orderId, String userId, String createdAt, String status, String paymentMethod,
                  String shippingAddress, long totalAmount, List<OrderItem> items) {
+        this(orderId, userId, createdAt, status, paymentMethod, shippingAddress, "", "", totalAmount, items);
+    }
+
+    public Order(String orderId, String userId, String createdAt, String status, String paymentMethod,
+                 String shippingAddress, String recipientName, String recipientPhone,
+                 long totalAmount, List<OrderItem> items) {
         this.orderId = orderId;
         this.userId = userId != null ? userId : "";
         this.createdAt = createdAt;
         this.status = status;
         this.paymentMethod = paymentMethod;
         this.shippingAddress = shippingAddress;
+        this.recipientName = recipientName != null ? recipientName : "";
+        this.recipientPhone = recipientPhone != null ? recipientPhone : "";
         this.totalAmount = totalAmount;
         this.items = items != null ? items : new ArrayList<>();
     }
@@ -46,6 +56,10 @@ public class Order implements Serializable {
     public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
     public String getShippingAddress() { return shippingAddress; }
     public void setShippingAddress(String shippingAddress) { this.shippingAddress = shippingAddress; }
+    public String getRecipientName() { return recipientName; }
+    public void setRecipientName(String recipientName) { this.recipientName = recipientName != null ? recipientName : ""; }
+    public String getRecipientPhone() { return recipientPhone; }
+    public void setRecipientPhone(String recipientPhone) { this.recipientPhone = recipientPhone != null ? recipientPhone : ""; }
     public long getTotalAmount() { return totalAmount; }
     public void setTotalAmount(long totalAmount) { this.totalAmount = totalAmount; }
     public List<OrderItem> getItems() { return items; }

@@ -5,6 +5,7 @@ import com.ecommerce.dktechshop.data.model.CartItem;
 import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.OrderItem;
 import com.ecommerce.dktechshop.data.model.Product;
+import com.ecommerce.dktechshop.data.model.Review;
 import com.ecommerce.dktechshop.data.model.User;
 
 import java.text.NumberFormat;
@@ -23,6 +24,7 @@ public class MockRepository {
     private final List<Product> products = new ArrayList<>();
     private final List<CartItem> cartItems = new ArrayList<>();
     private final List<Order> orders = new ArrayList<>();
+    private final List<Review> reviews = new ArrayList<>();
     private final List<String> favorites = new ArrayList<>();
     private User currentUser;
 
@@ -254,6 +256,14 @@ public class MockRepository {
         );
 
         favorites.add("prod_sony_xm5");
+
+        // Sample Reviews
+        reviews.add(new Review("rev_1", "prod_logi_gpx2", "Logitech G Pro X Superlight 2", "TG-2026-8841",
+                "u_sample_1", "Nguyễn Tuấn Duy", 5.0f, "Chuột cầm rất đầm tay, siêu nhẹ 60g lướt pad cực mượt. Switch quang học click rất nảy!", "Trắng - Wireless", "20/11/2026"));
+        reviews.add(new Review("rev_2", "prod_sony_xm5", "Sony WH-1000XM5 ANC", "TG-2026-8790",
+                "u_sample_2", "Trần Minh", 5.0f, "Chống ồn đỉnh cao, đeo êm tai không bị cấn kính. Âm bass sâu và ấm, nghe nhạc cực đã.", "Đen Nhám - Bluetooth", "18/11/2026"));
+        reviews.add(new Review("rev_3", "prod_keychron_q1", "Keychron Q1 Pro QMK/VIA", "TG-2026-8790",
+                "u_sample_3", "Lê Hoàng", 4.5f, "Build nhôm nguyên khối đầm chắc, âm gõ creamy rất thích. Kết nối bluetooth nhanh và ổn định.", "Carbon Black - Banana Switch", "16/11/2026"));
     }
 
     public List<Product> getProducts() { return products; }
@@ -514,6 +524,67 @@ public class MockRepository {
             favorites.add(productId);
         }
         notifyListeners();
+    }
+
+    public List<Review> getReviews(String productId) {
+        List<Review> result = new ArrayList<>();
+        if (productId == null || productId.trim().isEmpty()) return result;
+        for (Review r : reviews) {
+            if (productId.equals(r.getProductId())) {
+                result.add(r);
+            }
+        }
+        return result;
+    }
+
+    public void addReview(Review review) {
+        if (review == null) return;
+        reviews.add(0, review);
+
+        // Cập nhật lại rating và reviewCount của sản phẩm
+        Product p = getProductById(review.getProductId());
+        if (p != null) {
+            int newCount = p.getReviewCount() + 1;
+            double newRating = Math.round((((p.getRating() * p.getReviewCount()) + review.getRating()) / newCount) * 10.0) / 10.0;
+            p.setReviewCount(newCount);
+            p.setRating(newRating);
+        }
+
+        // Cập nhật trạng thái reviewed cho OrderItem tương ứng
+        if (review.getOrderId() != null && !review.getOrderId().trim().isEmpty()) {
+            for (Order o : orders) {
+                if (review.getOrderId().equals(o.getOrderId())) {
+                    for (OrderItem item : o.getItems()) {
+                        if (review.getProductId().equals(item.getProductId()) || review.getProductName().equals(item.getProductName())) {
+                            item.setReviewed(true);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        notifyListeners();
+    }
+
+    public boolean hasUserPurchasedProduct(String productId) {
+        if (productId == null || productId.trim().isEmpty()) return false;
+        Product p = getProductById(productId);
+        String pName = p != null ? p.getName() : "";
+
+        for (Order o : orders) {
+            String status = o.getStatus() != null ? o.getStatus().trim() : "";
+            if ("Đã giao".equalsIgnoreCase(status) || "Hoàn thành".equalsIgnoreCase(status)) {
+                if (o.getItems() != null) {
+                    for (OrderItem item : o.getItems()) {
+                        if (productId.equals(item.getProductId()) ||
+                                (!pName.isEmpty() && pName.equalsIgnoreCase(item.getProductName()))) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     public static String formatVND(long amount) {
