@@ -10,6 +10,7 @@ public class User implements Serializable {
     private String email = "";
     private String phone = "";
     private String address = "";
+    private String tier = "Thành viên Đồng";
     private List<Address> addresses = new ArrayList<>();
     private boolean isLoggedIn = false;
 
@@ -22,6 +23,7 @@ public class User implements Serializable {
         this.email = email;
         this.phone = phone;
         this.address = address;
+        this.tier = "Thành viên Đồng";
         this.addresses = addresses != null ? addresses : new ArrayList<>();
         this.isLoggedIn = isLoggedIn;
     }
@@ -36,6 +38,8 @@ public class User implements Serializable {
     public void setPhone(String phone) { this.phone = phone; }
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+    public String getTier() { return tier; }
+    public void setTier(String tier) { this.tier = tier; }
     public List<Address> getAddresses() { return addresses; }
     public void setAddresses(List<Address> addresses) { this.addresses = addresses; }
     public boolean isLoggedIn() { return isLoggedIn; }

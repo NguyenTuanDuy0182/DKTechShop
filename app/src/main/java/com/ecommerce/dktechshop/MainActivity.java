@@ -11,12 +11,16 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 
 import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.ui.auth.AuthActivity;
+import com.ecommerce.dktechshop.ui.auth.AuthViewModel;
 import com.ecommerce.dktechshop.ui.cart.CartFragment;
 import com.ecommerce.dktechshop.ui.home.HomeFragment;
 import com.ecommerce.dktechshop.ui.orders.OrdersFragment;
 import com.ecommerce.dktechshop.ui.profile.ProfileFragment;
 import com.google.android.material.badge.BadgeDrawable;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.firebase.auth.FirebaseAuth;
+import androidx.lifecycle.ViewModelProvider;
 
 public class MainActivity extends AppCompatActivity implements MockRepository.OnDataChangeListener {
 
@@ -26,6 +30,19 @@ public class MainActivity extends AppCompatActivity implements MockRepository.On
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Kiểm tra phiên đăng nhập Firebase Auth
+        if (FirebaseAuth.getInstance().getCurrentUser() == null) {
+            Intent intent = new Intent(this, AuthActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
+            return;
+        }
+
+        // Khởi tạo AuthViewModel để tải thông tin người dùng từ Firestore
+        new ViewModelProvider(this).get(AuthViewModel.class).loadCurrentUser();
+
         WindowCompat.enableEdgeToEdge(getWindow());
         setContentView(R.layout.activity_main);
 

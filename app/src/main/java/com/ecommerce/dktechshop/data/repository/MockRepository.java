@@ -388,6 +388,13 @@ public class MockRepository {
 
     public User getCurrentUser() { return currentUser; }
 
+    public void setCurrentUser(User user) {
+        if (user != null) {
+            this.currentUser = user;
+            notifyListeners();
+        }
+    }
+
     public String getDefaultAddressDetail() {
         for (Address a : currentUser.getAddresses()) {
             if (a.isDefault()) return a.getDetail();
