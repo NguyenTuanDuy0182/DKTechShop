@@ -16,19 +16,23 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Address;
 import com.ecommerce.dktechshop.data.model.User;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.ecommerce.dktechshop.ui.auth.AuthActivity;
+import com.ecommerce.dktechshop.ui.auth.AuthViewModel;
 import com.google.android.material.button.MaterialButton;
 
-public class ProfileFragment extends Fragment implements MockRepository.OnDataChangeListener {
+import java.util.List;
+
+public class ProfileFragment extends Fragment {
 
     private TextView tvName;
     private TextView tvEmail;
+    private TextView tvTier;
 
     // Accordions
     private LinearLayout layoutExpandedAddress;
@@ -40,6 +44,7 @@ public class ProfileFragment extends Fragment implements MockRepository.OnDataCh
 
     // Address section views
     private TextView tvAddressCount;
+    private MaterialButton btnToggleAddAddress;
     private LinearLayout layoutFormAddAddress;
     private LinearLayout layoutAddressList;
     private EditText etNewAddressLabel;
@@ -54,6 +59,8 @@ public class ProfileFragment extends Fragment implements MockRepository.OnDataCh
     private EditText etNewPass;
     private EditText etConfirmPass;
 
+    private AuthViewModel authViewModel;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -64,8 +71,11 @@ public class ProfileFragment extends Fragment implements MockRepository.OnDataCh
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        authViewModel = new ViewModelProvider(requireActivity()).get(AuthViewModel.class);
+
         tvName = view.findViewById(R.id.tv_profile_name);
         tvEmail = view.findViewById(R.id.tv_profile_email);
+        tvTier = view.findViewById(R.id.tv_profile_tier);
         TextView btnEditNameTrigger = view.findViewById(R.id.btn_profile_edit_name_trigger);
 
         LinearLayout menuItemOrders = view.findViewById(R.id.menu_item_orders);
@@ -82,7 +92,7 @@ public class ProfileFragment extends Fragment implements MockRepository.OnDataCh
         ivArrowPassword = view.findViewById(R.id.iv_arrow_password);
 
         tvAddressCount = view.findViewById(R.id.tv_address_count);
-        MaterialButton btnToggleAddAddress = view.findViewById(R.id.btn_toggle_add_address);
+        btnToggleAddAddress = view.findViewById(R.id.btn_toggle_add_address);
         layoutFormAddAddress = view.findViewById(R.id.layout_form_add_address);
         layoutAddressList = view.findViewById(R.id.layout_address_list_container);
         etNewAddressLabel = view.findViewById(R.id.et_new_address_label);
@@ -100,8 +110,8 @@ public class ProfileFragment extends Fragment implements MockRepository.OnDataCh
 
         MaterialButton btnLogout = view.findViewById(R.id.btn_profile_logout);
 
-        // Populate user info
-        refreshUserInfo();
+        // Quan sát dữ liệu người dùng từ AuthViewModel
+        observeViewModel();
 
         btnEditNameTrigger.setOnClickListener(v -> toggleSection(layoutExpandedRename, ivArrowRename));
 
@@ -125,6 +135,7 @@ public class ProfileFragment extends Fragment implements MockRepository.OnDataCh
             }
         });
 
+        // Thêm địa chỉ giao hàng lưu Firestore
         btnSaveAddress.setOnClickListener(v -> {
             String label = etNewAddressLabel.getText() != null ? etNewAddressLabel.getText().toString().trim() : "";
             String detail = etNewAddressDetail.getText() != null ? etNewAddressDetail.getText().toString().trim() : "";
@@ -135,14 +146,12 @@ public class ProfileFragment extends Fragment implements MockRepository.OnDataCh
             }
 
             if (label.isEmpty()) label = "Địa chỉ mới";
-            MockRepository.getInstance().addAddress(label, detail);
+            authViewModel.addAddress(label, detail);
             etNewAddressDetail.setText("");
-            layoutFormAddAddress.setVisibility(View.GONE);
-            btnToggleAddAddress.setText("+ Thêm địa chỉ");
-            Toast.makeText(requireContext(), "Đã thêm và đặt làm địa chỉ mặc định!", Toast.LENGTH_SHORT).show();
-            renderAddressList();
+            etNewAddressLabel.setText("");
         });
 
+        // Đổi thông tin tên, số điện thoại lưu Firestore
         btnSaveName.setOnClickListener(v -> {
             String name = etEditName.getText() != null ? etEditName.getText().toString().trim() : "";
             String phone = etEditPhone.getText() != null ? etEditPhone.getText().toString().trim() : "";
@@ -152,13 +161,10 @@ public class ProfileFragment extends Fragment implements MockRepository.OnDataCh
                 return;
             }
 
-            MockRepository.getInstance().updateProfile(name, phone);
-            layoutExpandedRename.setVisibility(View.GONE);
-            ivArrowRename.setRotation(0);
-            Toast.makeText(requireContext(), "Đã đổi tên người dùng thành công!", Toast.LENGTH_SHORT).show();
-            refreshUserInfo();
+            authViewModel.updateDisplayName(name, phone);
         });
 
+        // Đổi mật khẩu qua FirebaseUser
         btnSavePass.setOnClickListener(v -> {
             String newPass = etNewPass.getText() != null ? etNewPass.getText().toString().trim() : "";
             String confirmPass = etConfirmPass.getText() != null ? etConfirmPass.getText().toString().trim() : "";
@@ -173,24 +179,56 @@ public class ProfileFragment extends Fragment implements MockRepository.OnDataCh
                 return;
             }
 
+            authViewModel.changePassword(newPass);
             etCurrentPass.setText("");
             etNewPass.setText("");
             etConfirmPass.setText("");
-            layoutExpandedPassword.setVisibility(View.GONE);
-            ivArrowPassword.setRotation(0);
-            Toast.makeText(requireContext(), "Đã đổi mật khẩu thành công!", Toast.LENGTH_SHORT).show();
         });
 
+        // Đăng xuất và chuyển về màn hình đăng nhập
         btnLogout.setOnClickListener(v -> {
-            MockRepository.getInstance().getCurrentUser().setLoggedIn(false);
+            authViewModel.logout();
             Toast.makeText(requireContext(), "Đã đăng xuất khỏi tài khoản", Toast.LENGTH_SHORT).show();
             Intent intent = new Intent(requireContext(), AuthActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
         });
+    }
 
-        renderAddressList();
-        MockRepository.getInstance().addListener(this);
+    private void observeViewModel() {
+        authViewModel.getCurrentUser().observe(getViewLifecycleOwner(), user -> {
+            if (user != null) {
+                tvName.setText(user.getName());
+                tvEmail.setText(user.getEmail());
+                if (tvTier != null) {
+                    tvTier.setText(user.getTier() != null && !user.getTier().isEmpty() ? user.getTier() : "Thành viên Đồng");
+                }
+                etEditName.setText(user.getName());
+                etEditPhone.setText(user.getPhone());
+            }
+        });
+
+        authViewModel.getAddresses().observe(getViewLifecycleOwner(), this::renderAddressList);
+
+        authViewModel.getSuccessMessage().observe(getViewLifecycleOwner(), msg -> {
+            if (msg != null && !msg.isEmpty()) {
+                Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+                if (layoutExpandedRename != null) layoutExpandedRename.setVisibility(View.GONE);
+                if (ivArrowRename != null) ivArrowRename.setRotation(0);
+                if (layoutExpandedPassword != null) layoutExpandedPassword.setVisibility(View.GONE);
+                if (ivArrowPassword != null) ivArrowPassword.setRotation(0);
+                if (layoutFormAddAddress != null) layoutFormAddAddress.setVisibility(View.GONE);
+                if (btnToggleAddAddress != null) btnToggleAddAddress.setText("+ Thêm địa chỉ");
+                authViewModel.clearStatus();
+            }
+        });
+
+        authViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
+            if (error != null && !error.isEmpty()) {
+                Toast.makeText(requireContext(), error, Toast.LENGTH_LONG).show();
+                authViewModel.clearStatus();
+            }
+        });
     }
 
     private void toggleSection(LinearLayout layout, ImageView arrow) {
@@ -211,20 +249,14 @@ public class ProfileFragment extends Fragment implements MockRepository.OnDataCh
         }
     }
 
-    private void refreshUserInfo() {
-        User user = MockRepository.getInstance().getCurrentUser();
-        tvName.setText(user.getName());
-        tvEmail.setText(user.getEmail());
-        etEditName.setText(user.getName());
-        etEditPhone.setText(user.getPhone());
-    }
-
-    private void renderAddressList() {
+    private void renderAddressList(List<Address> addresses) {
         layoutAddressList.removeAllViews();
-        User user = MockRepository.getInstance().getCurrentUser();
-        tvAddressCount.setText("Địa chỉ đã lưu (" + user.getAddresses().size() + ")");
+        int count = addresses != null ? addresses.size() : 0;
+        tvAddressCount.setText("Địa chỉ đã lưu (" + count + ")");
 
-        for (Address addr : user.getAddresses()) {
+        if (addresses == null) return;
+
+        for (Address addr : addresses) {
             LinearLayout itemCard = new LinearLayout(requireContext());
             itemCard.setOrientation(LinearLayout.HORIZONTAL);
             itemCard.setPadding(32, 24, 32, 24);
@@ -284,26 +316,10 @@ public class ProfileFragment extends Fragment implements MockRepository.OnDataCh
             itemCard.addView(rbDefault);
 
             itemCard.setOnClickListener(v -> {
-                MockRepository.getInstance().setDefaultAddress(addr.getId());
-                renderAddressList();
-                Toast.makeText(requireContext(), "Đã đổi địa chỉ giao hàng mặc định", Toast.LENGTH_SHORT).show();
+                authViewModel.setDefaultAddress(addr.getId());
             });
 
             layoutAddressList.addView(itemCard);
-        }
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        MockRepository.getInstance().removeListener(this);
-    }
-
-    @Override
-    public void onDataChanged() {
-        if (isAdded()) {
-            refreshUserInfo();
-            renderAddressList();
         }
     }
 }

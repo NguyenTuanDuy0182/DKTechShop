@@ -19,25 +19,30 @@ import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.ui.auth.AuthViewModel;
+import com.ecommerce.dktechshop.ui.cart.CartViewModel;
 import com.ecommerce.dktechshop.ui.detail.ProductDetailActivity;
 import com.ecommerce.dktechshop.ui.search.SearchActivity;
 import com.ecommerce.dktechshop.ui.viewmodel.ShopViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.ChipGroup;
-import com.google.android.material.progressindicator.CircularProgressIndicator;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 public class HomeFragment extends Fragment {
 
     private ProductGridAdapter adapter;
     private TextView tvSectionTitle;
-    private ShopViewModel viewModel;
-    private CircularProgressIndicator progressLoading;
-    private RecyclerView rvProducts;
+    private TextView tvGreetingName;
+    private String currentCategory = "all";
+    private CartViewModel cartViewModel;
+    private AuthViewModel authViewModel;
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_home, container, false);
     }
 
@@ -45,16 +50,27 @@ public class HomeFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        TextView tvGreetingName = view.findViewById(R.id.tv_greeting_name);
+        cartViewModel = new ViewModelProvider(requireActivity()).get(CartViewModel.class);
+        authViewModel = new ViewModelProvider(requireActivity()).get(AuthViewModel.class);
+
+        tvGreetingName = view.findViewById(R.id.tv_greeting_name);
         MaterialButton btnProfile = view.findViewById(R.id.btn_home_profile);
         MaterialCardView cardSearch = view.findViewById(R.id.card_search_trigger);
         MaterialCardView cardPromo = view.findViewById(R.id.card_promo_banner);
         ChipGroup chipGroup = view.findViewById(R.id.chip_group_category);
         tvSectionTitle = view.findViewById(R.id.tv_section_title);
-        rvProducts = view.findViewById(R.id.rv_products_grid);
-        progressLoading = view.findViewById(R.id.progress_loading);
+        RecyclerView rvProducts = view.findViewById(R.id.rv_products_grid);
 
-        tvGreetingName.setText(MockRepository.getInstance().getCurrentUser().getName());
+        // Hiển thị ngay tên người dùng từ Firebase Auth (nếu có cache) hoặc
+        // MockRepository
+        updateGreeting();
+
+        // Lắng nghe dữ liệu người dùng thời gian thực từ AuthViewModel
+        authViewModel.getCurrentUser().observe(getViewLifecycleOwner(), user -> {
+            if (user != null && user.getName() != null && !user.getName().trim().isEmpty()) {
+                tvGreetingName.setText(user.getName());
+            }
+        });
 
         btnProfile.setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity) {
@@ -84,8 +100,12 @@ public class HomeFragment extends Fragment {
 
             @Override
             public void onQuickAddClick(Product product) {
-                MockRepository.getInstance().addToCart(product, product.getVariants().get(0), 1);
-                Toast.makeText(requireContext(), "Đã thêm " + product.getName() + " vào giỏ!", Toast.LENGTH_SHORT).show();
+                String variant = (product.getVariants() != null && !product.getVariants().isEmpty())
+                        ? product.getVariants().get(0)
+                        : "Mặc định";
+                cartViewModel.addToCart(product, variant, 1);
+                Toast.makeText(requireContext(), "Đã thêm " + product.getName() + " vào giỏ!", Toast.LENGTH_SHORT)
+                        .show();
             }
         });
 
@@ -120,21 +140,55 @@ public class HomeFragment extends Fragment {
             } else if (checkedIds.contains(R.id.chip_keyboard)) {
                 category = "keyboard";
             } else if (checkedIds.contains(R.id.chip_under35)) {
-                category = "under35";
+                currentCategory = "under35";
+            } else {
+                currentCategory = "all";
             }
-            viewModel.filterByCategory(category);
+            updateProductList();
         });
+
+        updateProductList();
+        MockRepository.getInstance().addListener(this);
+    }
+
+    private void updateGreeting() {
+        if (tvGreetingName == null)
+            return;
+
+        FirebaseUser fbUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty()) {
+            tvGreetingName.setText(fbUser.getDisplayName());
+        } else if (MockRepository.getInstance().getCurrentUser() != null) {
+            tvGreetingName.setText(MockRepository.getInstance().getCurrentUser().getName());
+        }
+    }
+
+    private void updateProductList() {
+        List<Product> list = MockRepository.getInstance().filterProducts(currentCategory);
+        adapter.setProducts(list);
+        if (tvSectionTitle != null) {
+            tvSectionTitle.setText("Thiết bị nổi bật (" + list.size() + ")");
+        }
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        View v = getView();
-        if (v != null) {
-            TextView tvGreetingName = v.findViewById(R.id.tv_greeting_name);
-            if (tvGreetingName != null) {
-                tvGreetingName.setText(MockRepository.getInstance().getCurrentUser().getName());
-            }
+        updateGreeting();
+        updateProductList();
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        MockRepository.getInstance().removeListener(this);
+    }
+
+    @Override
+    public void onDataChanged() {
+        if (isAdded()) {
+            updateGreeting();
+            updateProductList();
         }
     }
 }

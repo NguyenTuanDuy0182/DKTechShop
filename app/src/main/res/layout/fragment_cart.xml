@@ -183,10 +183,11 @@
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
-            <RadioGroup
-                android:id="@+id/rg_payment_methods"
+            <LinearLayout
+                android:id="@+id/layout_payment_methods"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
 
                 <!-- COD Option -->
                 <com.google.android.material.card.MaterialCardView
@@ -198,13 +199,17 @@
                     app:cardElevation="0dp"
                     app:strokeWidth="1dp"
                     app:strokeColor="@color/md_theme_light_primary"
-                    app:cardBackgroundColor="@color/md_theme_light_secondaryContainer">
+                    app:cardBackgroundColor="@color/md_theme_light_secondaryContainer"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <RadioButton
                         android:id="@+id/rb_pay_cod"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:checked="true"
+                        android:clickable="false"
+                        android:focusable="false"
                         android:padding="8dp"
                         android:text="Thanh toán khi nhận hàng (COD)"
                         android:textColor="@color/md_theme_light_onSurface"
@@ -221,12 +226,16 @@
                     app:cardElevation="0dp"
                     app:strokeWidth="1dp"
                     app:strokeColor="@color/md_theme_light_outlineVariant"
-                    app:cardBackgroundColor="@color/md_theme_light_surfaceContainerLowest">
+                    app:cardBackgroundColor="@color/md_theme_light_surfaceContainerLowest"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <RadioButton
                         android:id="@+id/rb_pay_vnpay"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:clickable="false"
+                        android:focusable="false"
                         android:padding="8dp"
                         android:text="VNPay / Chuyển khoản QR"
                         android:textColor="@color/md_theme_light_onSurface"
@@ -242,18 +251,22 @@
                     app:cardElevation="0dp"
                     app:strokeWidth="1dp"
                     app:strokeColor="@color/md_theme_light_outlineVariant"
-                    app:cardBackgroundColor="@color/md_theme_light_surfaceContainerLowest">
+                    app:cardBackgroundColor="@color/md_theme_light_surfaceContainerLowest"
+                    android:clickable="true"
+                    android:focusable="true">
 
                     <RadioButton
                         android:id="@+id/rb_pay_momo"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:clickable="false"
+                        android:focusable="false"
                         android:padding="8dp"
                         android:text="Ví điện tử MoMo"
                         android:textColor="@color/md_theme_light_onSurface"
                         android:textSize="12sp" />
                 </com.google.android.material.card.MaterialCardView>
-            </RadioGroup>
+            </LinearLayout>
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

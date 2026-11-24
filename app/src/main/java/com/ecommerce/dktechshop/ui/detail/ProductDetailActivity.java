@@ -11,13 +11,14 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
-import com.ecommerce.dktechshop.data.repository.ProductRepository;
+import com.ecommerce.dktechshop.ui.cart.CartViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
@@ -34,42 +35,20 @@ public class ProductDetailActivity extends AppCompatActivity {
     private Product product;
     private MaterialButton btnFavorite;
     private TextView tvCartBadge;
+    private CartViewModel cartViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_product_detail);
 
-        Product extraProduct;
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            extraProduct = getIntent().getSerializableExtra(EXTRA_PRODUCT, Product.class);
-        } else {
-            extraProduct = (Product) getIntent().getSerializableExtra(EXTRA_PRODUCT);
-        }
-        if (extraProduct != null) {
-            product = extraProduct;
-            setupViews();
-        } else {
-            String productId = getIntent().getStringExtra(EXTRA_PRODUCT_ID);
-            if (productId != null) {
-                ProductRepository.getInstance().getProductById(productId, new ProductRepository.Callback<Product>() {
-                    @Override
-                    public void onSuccess(Product result) {
-                        product = result;
-                        setupViews();
-                    }
+        cartViewModel = new ViewModelProvider(this).get(CartViewModel.class);
 
-                    @Override
-                    public void onError(Exception e) {
-                        product = MockRepository.getInstance().getProductById(productId);
-                        if (product == null) product = MockRepository.getInstance().getProducts().get(0);
-                        setupViews();
-                    }
-                });
-            } else {
-                product = MockRepository.getInstance().getProducts().get(0);
-                setupViews();
-            }
+        String productId = getIntent().getStringExtra(EXTRA_PRODUCT_ID);
+        if (productId != null) {
+            product = MockRepository.getInstance().getProductById(productId);
+        } else {
+            product = MockRepository.getInstance().getProducts().get(0);
         }
     }
 
@@ -142,7 +121,18 @@ public class ProductDetailActivity extends AppCompatActivity {
         }
 
         updateFavoriteIcon();
-        updateCartBadge();
+
+        // Lắng nghe realtime cartCount từ CartViewModel
+        cartViewModel.getCartCount().observe(this, count -> {
+            if (tvCartBadge != null) {
+                if (count != null && count > 0) {
+                    tvCartBadge.setVisibility(View.VISIBLE);
+                    tvCartBadge.setText(String.valueOf(count));
+                } else {
+                    tvCartBadge.setVisibility(View.GONE);
+                }
+            }
+        });
 
         btnBack.setOnClickListener(v -> finish());
 
@@ -193,10 +183,12 @@ public class ProductDetailActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onTabUnselected(TabLayout.Tab tab) {}
+            public void onTabUnselected(TabLayout.Tab tab) {
+            }
 
             @Override
-            public void onTabReselected(TabLayout.Tab tab) {}
+            public void onTabReselected(TabLayout.Tab tab) {
+            }
         });
 
         btnAddToCart.setOnClickListener(v -> openVariantSheet(false));
@@ -214,21 +206,10 @@ public class ProductDetailActivity extends AppCompatActivity {
         }
     }
 
-    private void updateCartBadge() {
-        int count = MockRepository.getInstance().getCartCount();
-        if (count > 0) {
-            tvCartBadge.setVisibility(View.VISIBLE);
-            tvCartBadge.setText(String.valueOf(count));
-        } else {
-            tvCartBadge.setVisibility(View.GONE);
-        }
-    }
-
     private void openVariantSheet(boolean isBuyNow) {
         ProductVariantBottomSheetDialog sheet = new ProductVariantBottomSheetDialog(product, isBuyNow,
                 (p, variant, qty, buyNow) -> {
-                    MockRepository.getInstance().addToCart(p, variant, qty);
-                    updateCartBadge();
+                    cartViewModel.addToCart(p, variant, qty);
                     if (buyNow) {
                         Intent intent = new Intent(this, MainActivity.class);
                         intent.putExtra("navigate_tab", R.id.nav_cart);
@@ -244,14 +225,16 @@ public class ProductDetailActivity extends AppCompatActivity {
 
     private void populateTable(LinearLayout container, Map<String, String> data) {
         container.removeAllViews();
-        if (data == null) return;
+        if (data == null)
+            return;
         int idx = 0;
         for (Map.Entry<String, String> entry : data.entrySet()) {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setPadding(32, 20, 32, 20);
             row.setBackgroundColor(ContextCompat.getColor(this,
-                    idx % 2 == 0 ? R.color.md_theme_light_surfaceContainerLowest : R.color.md_theme_light_surfaceContainerLow));
+                    idx % 2 == 0 ? R.color.md_theme_light_surfaceContainerLowest
+                            : R.color.md_theme_light_surfaceContainerLow));
 
             TextView tvKey = new TextView(this);
             tvKey.setText(entry.getKey());
