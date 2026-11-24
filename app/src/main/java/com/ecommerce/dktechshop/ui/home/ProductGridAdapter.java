@@ -10,6 +10,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
@@ -54,12 +55,22 @@ public class ProductGridAdapter extends RecyclerView.Adapter<ProductGridAdapter.
         holder.tvOriginalPrice.setPaintFlags(holder.tvOriginalPrice.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
         holder.tvDiscountTag.setText("-" + p.getDiscountPercent() + "%");
 
-        if ("mouse".equalsIgnoreCase(p.getCategory())) {
-            holder.ivIcon.setImageResource(R.drawable.ic_mouse);
-        } else if ("headphone".equalsIgnoreCase(p.getCategory())) {
-            holder.ivIcon.setImageResource(R.drawable.ic_headset);
+        if (p.getThumbnailUrl() != null && !p.getThumbnailUrl().trim().isEmpty()) {
+            holder.ivIcon.clearColorFilter();
+            Glide.with(holder.itemView.getContext())
+                    .load(p.getThumbnailUrl())
+                    .placeholder(R.drawable.ic_devices)
+                    .error(R.drawable.ic_devices)
+                    .into(holder.ivIcon);
         } else {
-            holder.ivIcon.setImageResource(R.drawable.ic_devices);
+            holder.ivIcon.setColorFilter(holder.itemView.getContext().getColor(R.color.md_theme_light_primary));
+            if ("mouse".equalsIgnoreCase(p.getCategory())) {
+                holder.ivIcon.setImageResource(R.drawable.ic_mouse);
+            } else if ("headphone".equalsIgnoreCase(p.getCategory())) {
+                holder.ivIcon.setImageResource(R.drawable.ic_headset);
+            } else {
+                holder.ivIcon.setImageResource(R.drawable.ic_devices);
+            }
         }
 
         holder.itemView.setOnClickListener(v -> {

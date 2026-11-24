@@ -11,6 +11,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -20,17 +21,19 @@ import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.ecommerce.dktechshop.ui.detail.ProductDetailActivity;
 import com.ecommerce.dktechshop.ui.search.SearchActivity;
+import com.ecommerce.dktechshop.ui.viewmodel.ShopViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.progressindicator.CircularProgressIndicator;
 
-import java.util.List;
-
-public class HomeFragment extends Fragment implements MockRepository.OnDataChangeListener {
+public class HomeFragment extends Fragment {
 
     private ProductGridAdapter adapter;
     private TextView tvSectionTitle;
-    private String currentCategory = "all";
+    private ShopViewModel viewModel;
+    private CircularProgressIndicator progressLoading;
+    private RecyclerView rvProducts;
 
     @Nullable
     @Override
@@ -48,7 +51,8 @@ public class HomeFragment extends Fragment implements MockRepository.OnDataChang
         MaterialCardView cardPromo = view.findViewById(R.id.card_promo_banner);
         ChipGroup chipGroup = view.findViewById(R.id.chip_group_category);
         tvSectionTitle = view.findViewById(R.id.tv_section_title);
-        RecyclerView rvProducts = view.findViewById(R.id.rv_products_grid);
+        rvProducts = view.findViewById(R.id.rv_products_grid);
+        progressLoading = view.findViewById(R.id.progress_loading);
 
         tvGreetingName.setText(MockRepository.getInstance().getCurrentUser().getName());
 
@@ -87,31 +91,38 @@ public class HomeFragment extends Fragment implements MockRepository.OnDataChang
         rvProducts.setLayoutManager(new GridLayoutManager(requireContext(), 2));
         rvProducts.setAdapter(adapter);
 
-        chipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
-            if (checkedIds.contains(R.id.chip_mouse)) {
-                currentCategory = "mouse";
-            } else if (checkedIds.contains(R.id.chip_headphone)) {
-                currentCategory = "headphone";
-            } else if (checkedIds.contains(R.id.chip_keyboard)) {
-                currentCategory = "keyboard";
-            } else if (checkedIds.contains(R.id.chip_under35)) {
-                currentCategory = "under35";
-            } else {
-                currentCategory = "all";
+        viewModel = new ViewModelProvider(this).get(ShopViewModel.class);
+
+        viewModel.getProducts().observe(getViewLifecycleOwner(), list -> {
+            adapter.setProducts(list);
+            if (tvSectionTitle != null) {
+                tvSectionTitle.setText("Thiết bị nổi bật (" + (list != null ? list.size() : 0) + ")");
             }
-            updateProductList();
         });
 
-        updateProductList();
-        MockRepository.getInstance().addListener(this);
-    }
+        viewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            boolean loading = Boolean.TRUE.equals(isLoading);
+            if (progressLoading != null) {
+                progressLoading.setVisibility(loading ? View.VISIBLE : View.GONE);
+            }
+            if (rvProducts != null) {
+                rvProducts.setVisibility(loading ? View.GONE : View.VISIBLE);
+            }
+        });
 
-    private void updateProductList() {
-        List<Product> list = MockRepository.getInstance().filterProducts(currentCategory);
-        adapter.setProducts(list);
-        if (tvSectionTitle != null) {
-            tvSectionTitle.setText("Thiết bị nổi bật (" + list.size() + ")");
-        }
+        chipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            String category = "all";
+            if (checkedIds.contains(R.id.chip_mouse)) {
+                category = "mouse";
+            } else if (checkedIds.contains(R.id.chip_headphone)) {
+                category = "headphone";
+            } else if (checkedIds.contains(R.id.chip_keyboard)) {
+                category = "keyboard";
+            } else if (checkedIds.contains(R.id.chip_under35)) {
+                category = "under35";
+            }
+            viewModel.filterByCategory(category);
+        });
     }
 
     @Override
@@ -123,20 +134,6 @@ public class HomeFragment extends Fragment implements MockRepository.OnDataChang
             if (tvGreetingName != null) {
                 tvGreetingName.setText(MockRepository.getInstance().getCurrentUser().getName());
             }
-        }
-        updateProductList();
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        MockRepository.getInstance().removeListener(this);
-    }
-
-    @Override
-    public void onDataChanged() {
-        if (isAdded()) {
-            updateProductList();
         }
     }
 }

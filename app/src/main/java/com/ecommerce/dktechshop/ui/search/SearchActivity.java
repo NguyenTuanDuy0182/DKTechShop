@@ -10,16 +10,20 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.ecommerce.dktechshop.ui.detail.ProductDetailActivity;
+import com.ecommerce.dktechshop.ui.viewmodel.ShopViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.button.MaterialButtonToggleGroup;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class SearchActivity extends AppCompatActivity {
@@ -30,8 +34,10 @@ public class SearchActivity extends AppCompatActivity {
     private LinearLayout layoutEmpty;
     private RecyclerView rvSearchResults;
     private ProductSearchAdapter adapter;
+    private ShopViewModel viewModel;
 
     private String currentSort = "popular";
+    private List<Product> currentResults = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,8 +62,13 @@ public class SearchActivity extends AppCompatActivity {
         rvSearchResults.setAdapter(adapter);
 
         btnBack.setOnClickListener(v -> finish());
-
         btnClear.setOnClickListener(v -> etSearchQuery.setText(""));
+
+        viewModel = new ViewModelProvider(this).get(ShopViewModel.class);
+        viewModel.getProducts().observe(this, products -> {
+            currentResults = new ArrayList<>(products);
+            applySortAndDisplay();
+        });
 
         etSearchQuery.addTextChangedListener(new TextWatcher() {
             @Override
@@ -66,7 +77,7 @@ public class SearchActivity extends AppCompatActivity {
             @Override
             public void onTextChanged(CharSequence s, int start, int count, int after) {
                 btnClear.setVisibility(s.length() > 0 ? View.VISIBLE : View.GONE);
-                performSearchAndSort();
+                viewModel.searchProducts(s.toString());
             }
 
             @Override
@@ -82,26 +93,25 @@ public class SearchActivity extends AppCompatActivity {
                 } else if (checkedId == R.id.btn_sort_price_desc) {
                     currentSort = "price_desc";
                 }
-                performSearchAndSort();
+                applySortAndDisplay();
             }
         });
-
-        performSearchAndSort();
     }
 
-    private void performSearchAndSort() {
-        String query = etSearchQuery.getText() != null ? etSearchQuery.getText().toString() : "";
-        List<Product> results = MockRepository.getInstance().searchAndSort(query, currentSort);
-        adapter.setProducts(results);
-
-        tvSearchCount.setText("Kết quả khớp: " + results.size() + " sản phẩm");
-
-        if (results.isEmpty()) {
-            layoutEmpty.setVisibility(View.VISIBLE);
-            rvSearchResults.setVisibility(View.GONE);
+    private void applySortAndDisplay() {
+        if ("price_asc".equals(currentSort)) {
+            Collections.sort(currentResults, Comparator.comparingLong(Product::getPrice));
+        } else if ("price_desc".equals(currentSort)) {
+            Collections.sort(currentResults, (a, b) -> Long.compare(b.getPrice(), a.getPrice()));
         } else {
-            layoutEmpty.setVisibility(View.GONE);
-            rvSearchResults.setVisibility(View.VISIBLE);
+            Collections.sort(currentResults, (a, b) -> Double.compare(b.getRating(), a.getRating()));
         }
+
+        adapter.setProducts(currentResults);
+        tvSearchCount.setText("Kết quả khớp: " + currentResults.size() + " sản phẩm");
+
+        boolean isEmpty = currentResults.isEmpty();
+        layoutEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        rvSearchResults.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
     }
 }
