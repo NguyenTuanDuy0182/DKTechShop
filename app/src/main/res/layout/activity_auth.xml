@@ -15,22 +15,21 @@
         android:gravity="center"
         android:padding="24dp">
 
-        <!-- Top Cart Logo Card (Shapeable 20dp) -->
+        <!-- Top App Logo Card -->
         <com.google.android.material.card.MaterialCardView
-            android:layout_width="64dp"
-            android:layout_height="64dp"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
             app:cardCornerRadius="20dp"
             app:cardElevation="0dp"
             app:strokeWidth="0dp"
-            app:cardBackgroundColor="@color/md_theme_light_primaryContainer">
+            app:cardBackgroundColor="@android:color/transparent">
 
             <ImageView
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_gravity="center"
-                android:src="@drawable/ic_shopping_cart"
-                app:tint="@color/md_theme_light_onPrimaryContainer"
-                android:contentDescription="TechGear Logo" />
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter"
+                android:src="@mipmap/ic_launcher"
+                android:contentDescription="@string/app_name" />
         </com.google.android.material.card.MaterialCardView>
 
         <!-- Title & Subtitle -->
