@@ -27,6 +27,7 @@ import com.ecommerce.dktechshop.ui.viewmodel.ShopViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
@@ -35,7 +36,9 @@ public class HomeFragment extends Fragment {
     private ProductGridAdapter adapter;
     private TextView tvSectionTitle;
     private TextView tvGreetingName;
-    private String currentCategory = "all";
+    private CircularProgressIndicator progressLoading;
+    private RecyclerView rvProducts;
+    private ShopViewModel viewModel;
     private CartViewModel cartViewModel;
     private AuthViewModel authViewModel;
 
@@ -59,7 +62,8 @@ public class HomeFragment extends Fragment {
         MaterialCardView cardPromo = view.findViewById(R.id.card_promo_banner);
         ChipGroup chipGroup = view.findViewById(R.id.chip_group_category);
         tvSectionTitle = view.findViewById(R.id.tv_section_title);
-        RecyclerView rvProducts = view.findViewById(R.id.rv_products_grid);
+        rvProducts = view.findViewById(R.id.rv_products_grid);
+        progressLoading = view.findViewById(R.id.progress_loading);
 
         // Hiển thị ngay tên người dùng từ Firebase Auth (nếu có cache) hoặc
         // MockRepository
@@ -101,7 +105,7 @@ public class HomeFragment extends Fragment {
             @Override
             public void onQuickAddClick(Product product) {
                 String variant = (product.getVariants() != null && !product.getVariants().isEmpty())
-                        ? product.getVariants().get(0)
+                        ? product.getVariants().get(0).getName()
                         : "Mặc định";
                 cartViewModel.addToCart(product, variant, 1);
                 Toast.makeText(requireContext(), "Đã thêm " + product.getName() + " vào giỏ!", Toast.LENGTH_SHORT)
@@ -140,15 +144,10 @@ public class HomeFragment extends Fragment {
             } else if (checkedIds.contains(R.id.chip_keyboard)) {
                 category = "keyboard";
             } else if (checkedIds.contains(R.id.chip_under35)) {
-                currentCategory = "under35";
-            } else {
-                currentCategory = "all";
+                category = "under35";
             }
-            updateProductList();
+            viewModel.filterByCategory(category);
         });
-
-        updateProductList();
-        MockRepository.getInstance().addListener(this);
     }
 
     private void updateGreeting() {
@@ -163,32 +162,9 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    private void updateProductList() {
-        List<Product> list = MockRepository.getInstance().filterProducts(currentCategory);
-        adapter.setProducts(list);
-        if (tvSectionTitle != null) {
-            tvSectionTitle.setText("Thiết bị nổi bật (" + list.size() + ")");
-        }
-    }
-
     @Override
     public void onResume() {
         super.onResume();
         updateGreeting();
-        updateProductList();
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        MockRepository.getInstance().removeListener(this);
-    }
-
-    @Override
-    public void onDataChanged() {
-        if (isAdded()) {
-            updateGreeting();
-            updateProductList();
-        }
     }
 }

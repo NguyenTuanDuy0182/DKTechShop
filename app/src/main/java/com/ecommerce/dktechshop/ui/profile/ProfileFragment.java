@@ -2,10 +2,12 @@ package com.ecommerce.dktechshop.ui.profile;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
@@ -14,6 +16,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.ViewModelProvider;
@@ -32,6 +35,7 @@ public class ProfileFragment extends Fragment {
 
     private TextView tvName;
     private TextView tvEmail;
+    private TextView tvPhone;
     private TextView tvTier;
 
     // Accordions
@@ -45,10 +49,7 @@ public class ProfileFragment extends Fragment {
     // Address section views
     private TextView tvAddressCount;
     private MaterialButton btnToggleAddAddress;
-    private LinearLayout layoutFormAddAddress;
     private LinearLayout layoutAddressList;
-    private EditText etNewAddressLabel;
-    private EditText etNewAddressDetail;
 
     // Rename section views
     private EditText etEditName;
@@ -75,6 +76,7 @@ public class ProfileFragment extends Fragment {
 
         tvName = view.findViewById(R.id.tv_profile_name);
         tvEmail = view.findViewById(R.id.tv_profile_email);
+        tvPhone = view.findViewById(R.id.tv_profile_phone);
         tvTier = view.findViewById(R.id.tv_profile_tier);
         TextView btnEditNameTrigger = view.findViewById(R.id.btn_profile_edit_name_trigger);
 
@@ -93,11 +95,7 @@ public class ProfileFragment extends Fragment {
 
         tvAddressCount = view.findViewById(R.id.tv_address_count);
         btnToggleAddAddress = view.findViewById(R.id.btn_toggle_add_address);
-        layoutFormAddAddress = view.findViewById(R.id.layout_form_add_address);
         layoutAddressList = view.findViewById(R.id.layout_address_list_container);
-        etNewAddressLabel = view.findViewById(R.id.et_new_address_label);
-        etNewAddressDetail = view.findViewById(R.id.et_new_address_detail);
-        MaterialButton btnSaveAddress = view.findViewById(R.id.btn_save_new_address);
 
         etEditName = view.findViewById(R.id.et_edit_profile_name);
         etEditPhone = view.findViewById(R.id.et_edit_profile_phone);
@@ -125,31 +123,7 @@ public class ProfileFragment extends Fragment {
         menuItemRename.setOnClickListener(v -> toggleSection(layoutExpandedRename, ivArrowRename));
         menuItemPassword.setOnClickListener(v -> toggleSection(layoutExpandedPassword, ivArrowPassword));
 
-        btnToggleAddAddress.setOnClickListener(v -> {
-            if (layoutFormAddAddress.getVisibility() == View.VISIBLE) {
-                layoutFormAddAddress.setVisibility(View.GONE);
-                btnToggleAddAddress.setText("+ Thêm địa chỉ");
-            } else {
-                layoutFormAddAddress.setVisibility(View.VISIBLE);
-                btnToggleAddAddress.setText("Đóng form");
-            }
-        });
-
-        // Thêm địa chỉ giao hàng lưu Firestore
-        btnSaveAddress.setOnClickListener(v -> {
-            String label = etNewAddressLabel.getText() != null ? etNewAddressLabel.getText().toString().trim() : "";
-            String detail = etNewAddressDetail.getText() != null ? etNewAddressDetail.getText().toString().trim() : "";
-
-            if (detail.isEmpty()) {
-                Toast.makeText(requireContext(), "Vui lòng nhập địa chỉ chi tiết", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (label.isEmpty()) label = "Địa chỉ mới";
-            authViewModel.addAddress(label, detail);
-            etNewAddressDetail.setText("");
-            etNewAddressLabel.setText("");
-        });
+        btnToggleAddAddress.setOnClickListener(v -> showAddressDialog(null));
 
         // Đổi thông tin tên, số điện thoại lưu Firestore
         btnSaveName.setOnClickListener(v -> {
@@ -200,6 +174,14 @@ public class ProfileFragment extends Fragment {
             if (user != null) {
                 tvName.setText(user.getName());
                 tvEmail.setText(user.getEmail());
+                if (tvPhone != null) {
+                    String p = user.getPhone();
+                    if (p != null && !p.trim().isEmpty()) {
+                        tvPhone.setText("SĐT chính: " + p.trim());
+                    } else {
+                        tvPhone.setText("Chưa cập nhật SĐT");
+                    }
+                }
                 if (tvTier != null) {
                     tvTier.setText(user.getTier() != null && !user.getTier().isEmpty() ? user.getTier() : "Thành viên Đồng");
                 }
@@ -217,8 +199,6 @@ public class ProfileFragment extends Fragment {
                 if (ivArrowRename != null) ivArrowRename.setRotation(0);
                 if (layoutExpandedPassword != null) layoutExpandedPassword.setVisibility(View.GONE);
                 if (ivArrowPassword != null) ivArrowPassword.setRotation(0);
-                if (layoutFormAddAddress != null) layoutFormAddAddress.setVisibility(View.GONE);
-                if (btnToggleAddAddress != null) btnToggleAddAddress.setText("+ Thêm địa chỉ");
                 authViewModel.clearStatus();
             }
         });
@@ -259,6 +239,7 @@ public class ProfileFragment extends Fragment {
         for (Address addr : addresses) {
             LinearLayout itemCard = new LinearLayout(requireContext());
             itemCard.setOrientation(LinearLayout.HORIZONTAL);
+            itemCard.setGravity(Gravity.CENTER_VERTICAL);
             itemCard.setPadding(32, 24, 32, 24);
             itemCard.setBackgroundResource(R.drawable.bg_banner_gradient);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -305,21 +286,125 @@ public class ProfileFragment extends Fragment {
             tvDetail.setText(addr.getDetail());
             tvDetail.setTextSize(11);
             tvDetail.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_light_onSurfaceVariant));
-            tvDetail.setPadding(0, 6, 0, 0);
+            tvDetail.setPadding(0, 4, 0, 0);
             textCol.addView(tvDetail);
 
+            if (addr.getPhone() != null && !addr.getPhone().trim().isEmpty()) {
+                TextView tvItemPhone = new TextView(requireContext());
+                tvItemPhone.setText("SĐT: " + addr.getPhone().trim());
+                tvItemPhone.setTextSize(11);
+                tvItemPhone.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_light_onSurfaceVariant));
+                tvItemPhone.setPadding(0, 2, 0, 0);
+                textCol.addView(tvItemPhone);
+            }
+
             itemCard.addView(textCol);
+
+            LinearLayout actionRow = new LinearLayout(requireContext());
+            actionRow.setOrientation(LinearLayout.HORIZONTAL);
+            actionRow.setGravity(Gravity.CENTER_VERTICAL);
+
+            ImageButton btnEdit = new ImageButton(requireContext());
+            btnEdit.setImageResource(R.drawable.ic_edit);
+            btnEdit.setImageTintList(ContextCompat.getColorStateList(requireContext(), R.color.md_theme_light_primary));
+            btnEdit.setBackgroundResource(android.R.color.transparent);
+            btnEdit.setPadding(12, 12, 12, 12);
+            btnEdit.setContentDescription("Sửa địa chỉ");
+            btnEdit.setOnClickListener(v -> showAddressDialog(addr));
+            actionRow.addView(btnEdit);
+
+            if (!addr.isDefault()) {
+                ImageButton btnDelete = new ImageButton(requireContext());
+                btnDelete.setImageResource(R.drawable.ic_delete);
+                btnDelete.setImageTintList(ContextCompat.getColorStateList(requireContext(), R.color.md_theme_light_error));
+                btnDelete.setBackgroundResource(android.R.color.transparent);
+                btnDelete.setPadding(12, 12, 12, 12);
+                btnDelete.setContentDescription("Xóa địa chỉ");
+                btnDelete.setOnClickListener(v -> {
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("Xóa địa chỉ")
+                            .setMessage("Bạn có chắc muốn xóa địa chỉ \"" + addr.getLabel() + "\" không?")
+                            .setPositiveButton("Xóa", (dialog, which) -> authViewModel.deleteAddress(addr.getId()))
+                            .setNegativeButton("Hủy", null)
+                            .show();
+                });
+                actionRow.addView(btnDelete);
+            }
 
             RadioButton rbDefault = new RadioButton(requireContext());
             rbDefault.setChecked(addr.isDefault());
             rbDefault.setClickable(false);
-            itemCard.addView(rbDefault);
+            actionRow.addView(rbDefault);
+
+            itemCard.addView(actionRow);
 
             itemCard.setOnClickListener(v -> {
-                authViewModel.setDefaultAddress(addr.getId());
+                if (!addr.isDefault()) {
+                    authViewModel.setDefaultAddress(addr.getId());
+                }
             });
 
             layoutAddressList.addView(itemCard);
         }
+    }
+
+    private void showAddressDialog(@Nullable Address addrToEdit) {
+        boolean isEdit = addrToEdit != null;
+        View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_address, null);
+        TextView tvTitle = dialogView.findViewById(R.id.tv_dialog_address_title);
+        TextView tvSubtitle = dialogView.findViewById(R.id.tv_dialog_address_subtitle);
+        EditText etLabel = dialogView.findViewById(R.id.et_dialog_address_label);
+        EditText etPhone = dialogView.findViewById(R.id.et_dialog_address_phone);
+        EditText etDetail = dialogView.findViewById(R.id.et_dialog_address_detail);
+        MaterialButton btnCancel = dialogView.findViewById(R.id.btn_dialog_cancel);
+        MaterialButton btnSave = dialogView.findViewById(R.id.btn_dialog_save);
+
+        if (isEdit) {
+            tvTitle.setText("Chỉnh sửa địa chỉ");
+            tvSubtitle.setText("Cập nhật thông tin giao hàng của bạn");
+            btnSave.setText("Lưu thay đổi");
+            etLabel.setText(addrToEdit.getLabel());
+            etPhone.setText(addrToEdit.getPhone());
+            etDetail.setText(addrToEdit.getDetail());
+        } else {
+            tvTitle.setText("Thêm địa chỉ mới");
+            tvSubtitle.setText("Nhập thông tin giao hàng mới của bạn");
+            btnSave.setText("Thêm địa chỉ");
+            User u = authViewModel.getCurrentUser().getValue();
+            String mainPhone = (u != null && u.getPhone() != null) ? u.getPhone().trim() : "";
+            etPhone.setText(mainPhone);
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                .setView(dialogView)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnSave.setOnClickListener(v -> {
+            String label = etLabel.getText() != null ? etLabel.getText().toString().trim() : "";
+            String phone = etPhone.getText() != null ? etPhone.getText().toString().trim() : "";
+            String detail = etDetail.getText() != null ? etDetail.getText().toString().trim() : "";
+
+            if (detail.isEmpty()) {
+                Toast.makeText(requireContext(), "Vui lòng nhập địa chỉ chi tiết", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (label.isEmpty()) label = isEdit ? "Địa chỉ" : "Địa chỉ mới";
+
+            if (isEdit) {
+                Address updated = new Address(addrToEdit.getId(), label, detail, phone, addrToEdit.isDefault());
+                authViewModel.updateAddress(updated);
+            } else {
+                authViewModel.addAddress(label, detail, phone);
+            }
+            dialog.dismiss();
+        });
+
+        dialog.show();
     }
 }

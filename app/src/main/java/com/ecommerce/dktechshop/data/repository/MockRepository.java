@@ -451,12 +451,45 @@ public class MockRepository {
     }
 
     public void addAddress(String label, String detail) {
+        addAddress(label, detail, currentUser != null ? currentUser.getPhone() : "");
+    }
+
+    public void addAddress(String label, String detail, String phone) {
         for (Address a : currentUser.getAddresses()) {
             a.setDefault(false);
         }
-        Address newAddr = new Address("addr_" + System.currentTimeMillis(), label, detail, true);
+        Address newAddr = new Address("addr_" + System.currentTimeMillis(), label, detail, phone, true);
         currentUser.getAddresses().add(0, newAddr);
         currentUser.setAddress(detail);
+        notifyListeners();
+    }
+
+    public void deleteAddress(String addressId) {
+        Address toRemove = null;
+        for (Address a : currentUser.getAddresses()) {
+            if (a.getId().equals(addressId) && !a.isDefault()) {
+                toRemove = a;
+                break;
+            }
+        }
+        if (toRemove != null) {
+            currentUser.getAddresses().remove(toRemove);
+            notifyListeners();
+        }
+    }
+
+    public void updateAddress(Address address) {
+        if (address == null || address.getId() == null) return;
+        for (int i = 0; i < currentUser.getAddresses().size(); i++) {
+            Address a = currentUser.getAddresses().get(i);
+            if (address.getId().equals(a.getId())) {
+                currentUser.getAddresses().set(i, address);
+                if (address.isDefault()) {
+                    currentUser.setAddress(address.getDetail());
+                }
+                break;
+            }
+        }
         notifyListeners();
     }
 

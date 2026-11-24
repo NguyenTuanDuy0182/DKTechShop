@@ -240,8 +240,11 @@ public class CartFragment extends Fragment {
             }
         });
 
-        // Lắng nghe thay đổi User profile
+        // Lắng nghe thay đổi User profile & addresses
         authViewModel.getCurrentUser().observe(getViewLifecycleOwner(), user -> {
+            updateAddressUI();
+        });
+        authViewModel.getAddresses().observe(getViewLifecycleOwner(), addresses -> {
             updateAddressUI();
         });
     }
@@ -263,11 +266,26 @@ public class CartFragment extends Fragment {
                     name = MockRepository.getInstance().getCurrentUser().getName();
                 }
             }
-            if (phone == null || phone.trim().isEmpty()) {
+            Address defaultAddress = null;
+            List<Address> addresses = authViewModel.getAddresses().getValue();
+            if (addresses != null) {
+                for (Address a : addresses) {
+                    if (a.isDefault()) {
+                        defaultAddress = a;
+                        break;
+                    }
+                }
+                if (defaultAddress == null && !addresses.isEmpty()) {
+                    defaultAddress = addresses.get(0);
+                }
+            }
+            if (defaultAddress != null && defaultAddress.getPhone() != null && !defaultAddress.getPhone().trim().isEmpty()) {
+                phone = defaultAddress.getPhone().trim();
+            } else if (phone == null || phone.trim().isEmpty()) {
                 phone = MockRepository.getInstance().getCurrentUser().getPhone();
             }
             tvUserInfo.setText(name + (!phone.isEmpty() ? " • " + phone : ""));
-            tvAddressDetail.setText(MockRepository.getInstance().getDefaultAddressDetail());
+            tvAddressDetail.setText(defaultAddress != null ? defaultAddress.getDetail() : MockRepository.getInstance().getDefaultAddressDetail());
         }
     }
 

@@ -204,16 +204,62 @@ public class AuthViewModel extends ViewModel {
      * Thêm địa chỉ mới vào subcollection users/{uid}/addresses.
      */
     public void addAddress(String label, String detail) {
+        User user = currentUser.getValue();
+        String phone = user != null ? user.getPhone() : "";
+        addAddress(label, detail, phone);
+    }
+
+    public void addAddress(String label, String detail, String phone) {
         isLoading.setValue(true);
         clearStatus();
         boolean isDefault = (addresses.getValue() == null || addresses.getValue().isEmpty());
-        Address newAddress = new Address("", label, detail, isDefault);
+        Address newAddress = new Address("", label, detail, phone, isDefault);
 
         authRepository.addAddress(newAddress, new AuthRepository.ActionCallback() {
             @Override
             public void onSuccess() {
                 isLoading.setValue(false);
                 successMessage.setValue("Đã thêm địa chỉ mới thành công!");
+                loadAddresses();
+            }
+
+            @Override
+            public void onFailure(String error) {
+                isLoading.setValue(false);
+                errorMessage.setValue(error);
+            }
+        });
+    }
+
+    public void deleteAddress(String addressId) {
+        isLoading.setValue(true);
+        clearStatus();
+        authRepository.deleteAddress(addressId, new AuthRepository.ActionCallback() {
+            @Override
+            public void onSuccess() {
+                isLoading.setValue(false);
+                successMessage.setValue("Đã xóa địa chỉ!");
+                MockRepository.getInstance().deleteAddress(addressId);
+                loadAddresses();
+            }
+
+            @Override
+            public void onFailure(String error) {
+                isLoading.setValue(false);
+                errorMessage.setValue(error);
+            }
+        });
+    }
+
+    public void updateAddress(Address address) {
+        isLoading.setValue(true);
+        clearStatus();
+        authRepository.updateAddress(address, new AuthRepository.ActionCallback() {
+            @Override
+            public void onSuccess() {
+                isLoading.setValue(false);
+                successMessage.setValue("Đã cập nhật địa chỉ thành công!");
+                MockRepository.getInstance().updateAddress(address);
                 loadAddresses();
             }
 

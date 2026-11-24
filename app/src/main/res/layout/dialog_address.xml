@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardCornerRadius="24dp"
+    app:cardElevation="6dp"
+    app:strokeWidth="0dp"
+    app:cardBackgroundColor="@color/md_theme_light_surfaceContainerLowest">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:id="@+id/tv_dialog_address_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Thêm địa chỉ mới"
+            android:textColor="@color/md_theme_light_onSurface"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_dialog_address_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Nhập thông tin giao hàng mới của bạn"
+            android:textColor="@color/md_theme_light_onSurfaceVariant"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Tên nhãn địa chỉ"
+            android:textColor="@color/md_theme_light_onSurfaceVariant"
+            android:textSize="11sp" />
+
+        <EditText
+            android:id="@+id/et_dialog_address_label"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_banner_gradient"
+            android:backgroundTint="@color/md_theme_light_surfaceContainer"
+            android:hint="Nhãn (VD: Nhà riêng, Công ty)"
+            android:inputType="textCapWords"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:textSize="13sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Số điện thoại nhận hàng"
+            android:textColor="@color/md_theme_light_onSurfaceVariant"
+            android:textSize="11sp" />
+
+        <EditText
+            android:id="@+id/et_dialog_address_phone"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_banner_gradient"
+            android:backgroundTint="@color/md_theme_light_surfaceContainer"
+            android:hint="Số điện thoại nhận hàng"
+            android:inputType="phone"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:textSize="13sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Địa chỉ chi tiết"
+            android:textColor="@color/md_theme_light_onSurfaceVariant"
+            android:textSize="11sp" />
+
+        <EditText
+            android:id="@+id/et_dialog_address_detail"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_banner_gradient"
+            android:backgroundTint="@color/md_theme_light_surfaceContainer"
+            android:hint="Số nhà, đường, Phường, Quận..."
+            android:inputType="textCapWords"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:gravity="end"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_dialog_cancel"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="Hủy"
+                android:textColor="@color/md_theme_light_onSurfaceVariant" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_dialog_save"
+                style="@style/Widget.DKTechShop.Button.Pill"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:text="Lưu"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/md_theme_light_primary"
+                android:textColor="@color/md_theme_light_onPrimary" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

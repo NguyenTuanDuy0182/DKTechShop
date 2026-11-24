@@ -1,7 +1,9 @@
 package com.ecommerce.dktechshop.ui.detail;
 
 import android.content.Intent;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
@@ -17,8 +19,10 @@ import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
+import com.ecommerce.dktechshop.data.model.ProductVariant;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.ecommerce.dktechshop.ui.cart.CartViewModel;
+import com.ecommerce.dktechshop.ui.viewmodel.ShopViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
@@ -36,23 +40,45 @@ public class ProductDetailActivity extends AppCompatActivity {
     private MaterialButton btnFavorite;
     private TextView tvCartBadge;
     private CartViewModel cartViewModel;
+    private ShopViewModel shopViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_product_detail);
 
+        shopViewModel = new ViewModelProvider(this).get(ShopViewModel.class);
         cartViewModel = new ViewModelProvider(this).get(CartViewModel.class);
 
-        String productId = getIntent().getStringExtra(EXTRA_PRODUCT_ID);
-        if (productId != null) {
-            product = MockRepository.getInstance().getProductById(productId);
+        shopViewModel.getSelectedProduct().observe(this, p -> {
+            if (p != null) {
+                this.product = p;
+                setupViews();
+            }
+        });
+
+        shopViewModel.getIsFavorite().observe(this, this::updateFavoriteIcon);
+
+        Product extraProduct;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            extraProduct = getIntent().getSerializableExtra(EXTRA_PRODUCT, Product.class);
         } else {
-            product = MockRepository.getInstance().getProducts().get(0);
+            extraProduct = (Product) getIntent().getSerializableExtra(EXTRA_PRODUCT);
+        }
+
+        if (extraProduct != null) {
+            shopViewModel.setSelectedProduct(extraProduct);
+        } else {
+            String productId = getIntent().getStringExtra(EXTRA_PRODUCT_ID);
+            if (productId != null) {
+                shopViewModel.loadProductById(productId);
+            }
         }
     }
 
     private void setupViews() {
+        if (product == null) return;
+
         MaterialButton btnBack = findViewById(R.id.btn_detail_back);
         btnFavorite = findViewById(R.id.btn_detail_favorite);
         MaterialButton btnCart = findViewById(R.id.btn_detail_cart);
@@ -78,7 +104,6 @@ public class ProductDetailActivity extends AppCompatActivity {
         MaterialButton btnAddToCart = findViewById(R.id.btn_detail_add_to_cart);
         MaterialButton btnBuyNow = findViewById(R.id.btn_detail_buy_now);
 
-        // Bind data
         tvBrandBadge.setText(product.getBrand());
         tvName.setText(product.getName());
         tvCategory.setText(product.getCategoryLabel());
@@ -120,9 +145,6 @@ public class ProductDetailActivity extends AppCompatActivity {
             }
         }
 
-        updateFavoriteIcon();
-
-        // Lắng nghe realtime cartCount từ CartViewModel
         cartViewModel.getCartCount().observe(this, count -> {
             if (tvCartBadge != null) {
                 if (count != null && count > 0) {
@@ -137,12 +159,9 @@ public class ProductDetailActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
 
         btnFavorite.setOnClickListener(v -> {
-            MockRepository.getInstance().toggleFavorite(product.getId());
-            updateFavoriteIcon();
-            String msg = MockRepository.getInstance().isFavorite(product.getId())
-                    ? "Đã lưu vào danh sách yêu thích"
-                    : "Đã bỏ khỏi danh sách yêu thích";
-            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+            if (product != null) {
+                shopViewModel.toggleFavorite(product.getId());
+            }
         });
 
         btnCart.setOnClickListener(v -> {
@@ -153,17 +172,33 @@ public class ProductDetailActivity extends AppCompatActivity {
             finish();
         });
 
-        // Variant preview chips
         chipGroupVariants.removeAllViews();
-        for (String v : product.getVariants()) {
+        for (ProductVariant v : product.getVariants()) {
             Chip chip = new Chip(this);
-            chip.setText(v);
+            String title = v.getName();
+            if (v.getExtraPrice() > 0) {
+                title += " (+" + MockRepository.formatVND(v.getExtraPrice()) + ")";
+            }
+            chip.setText(title);
             chip.setCheckable(false);
+
+            if (v.getColorHex() != null && !v.getColorHex().trim().isEmpty()) {
+                try {
+                    int color = Color.parseColor(v.getColorHex().trim());
+                    GradientDrawable dot = new GradientDrawable();
+                    dot.setShape(GradientDrawable.OVAL);
+                    dot.setSize(36, 36);
+                    dot.setColor(color);
+                    dot.setStroke(2, 0x33000000);
+                    chip.setChipIcon(dot);
+                    chip.setChipIconVisible(true);
+                } catch (Exception ignored) {}
+            }
+
             chip.setOnClickListener(view -> openVariantSheet(false));
             chipGroupVariants.addView(chip);
         }
 
-        // Product details tabs: Specs & Warranty
         populateTable(layoutSpecsContainer, product.getSpecs());
 
         Map<String, String> warrantyInfo = new LinkedHashMap<>();
@@ -183,21 +218,20 @@ public class ProductDetailActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onTabUnselected(TabLayout.Tab tab) {
-            }
+            public void onTabUnselected(TabLayout.Tab tab) {}
 
             @Override
-            public void onTabReselected(TabLayout.Tab tab) {
-            }
+            public void onTabReselected(TabLayout.Tab tab) {}
         });
 
         btnAddToCart.setOnClickListener(v -> openVariantSheet(false));
         btnBuyNow.setOnClickListener(v -> openVariantSheet(true));
     }
 
-    private void updateFavoriteIcon() {
-        boolean fav = MockRepository.getInstance().isFavorite(product.getId());
-        if (fav) {
+    private void updateFavoriteIcon(Boolean fav) {
+        boolean isFav = Boolean.TRUE.equals(fav);
+        if (btnFavorite == null) return;
+        if (isFav) {
             btnFavorite.setIconResource(R.drawable.ic_favorite);
             btnFavorite.setIconTint(ContextCompat.getColorStateList(this, R.color.md_theme_light_error));
         } else {
@@ -207,9 +241,11 @@ public class ProductDetailActivity extends AppCompatActivity {
     }
 
     private void openVariantSheet(boolean isBuyNow) {
+        if (product == null) return;
         ProductVariantBottomSheetDialog sheet = new ProductVariantBottomSheetDialog(product, isBuyNow,
                 (p, variant, qty, buyNow) -> {
-                    cartViewModel.addToCart(p, variant, qty);
+                    String variantName = variant != null ? variant.getName() : "";
+                    cartViewModel.addToCart(p, variantName, qty);
                     if (buyNow) {
                         Intent intent = new Intent(this, MainActivity.class);
                         intent.putExtra("navigate_tab", R.id.nav_cart);
@@ -217,7 +253,7 @@ public class ProductDetailActivity extends AppCompatActivity {
                         startActivity(intent);
                         finish();
                     } else {
-                        Toast.makeText(this, "Đã thêm " + qty + " sản phẩm vào giỏ!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Đã thêm " + qty + " sản phẩm (" + variantName + ") vào giỏ!", Toast.LENGTH_SHORT).show();
                     }
                 });
         sheet.show(getSupportFragmentManager(), "variant_sheet");
@@ -225,8 +261,7 @@ public class ProductDetailActivity extends AppCompatActivity {
 
     private void populateTable(LinearLayout container, Map<String, String> data) {
         container.removeAllViews();
-        if (data == null)
-            return;
+        if (data == null) return;
         int idx = 0;
         for (Map.Entry<String, String> entry : data.entrySet()) {
             LinearLayout row = new LinearLayout(this);

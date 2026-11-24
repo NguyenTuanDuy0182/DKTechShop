@@ -1,12 +1,18 @@
 package com.ecommerce.dktechshop.data.repository;
 
 import com.ecommerce.dktechshop.data.model.Product;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ProductRepository {
     private static ProductRepository instance;
@@ -89,5 +95,58 @@ public class ProductRepository {
                     callback.onError(new Exception("Product not found"));
                 })
                 .addOnFailureListener(callback::onError);
+    }
+
+    public void isFavorite(String productId, Callback<Boolean> callback) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            callback.onSuccess(MockRepository.getInstance().isFavorite(productId));
+            return;
+        }
+        db.collection("users")
+                .document(user.getUid())
+                .collection("favorites")
+                .document(productId)
+                .get()
+                .addOnSuccessListener(doc -> callback.onSuccess(doc.exists()))
+                .addOnFailureListener(callback::onError);
+    }
+
+    public void toggleFavorite(String productId, Callback<Boolean> callback) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            MockRepository.getInstance().toggleFavorite(productId);
+            callback.onSuccess(MockRepository.getInstance().isFavorite(productId));
+            return;
+        }
+        DocumentReference docRef = db.collection("users")
+                .document(user.getUid())
+                .collection("favorites")
+                .document(productId);
+
+        docRef.get().addOnSuccessListener(doc -> {
+            if (doc.exists()) {
+                docRef.delete()
+                        .addOnSuccessListener(aVoid -> {
+                            if (MockRepository.getInstance().isFavorite(productId)) {
+                                MockRepository.getInstance().toggleFavorite(productId);
+                            }
+                            callback.onSuccess(false);
+                        })
+                        .addOnFailureListener(callback::onError);
+            } else {
+                Map<String, Object> data = new HashMap<>();
+                data.put("productId", productId);
+                data.put("timestamp", FieldValue.serverTimestamp());
+                docRef.set(data)
+                        .addOnSuccessListener(aVoid -> {
+                            if (!MockRepository.getInstance().isFavorite(productId)) {
+                                MockRepository.getInstance().toggleFavorite(productId);
+                            }
+                            callback.onSuccess(true);
+                        })
+                        .addOnFailureListener(callback::onError);
+            }
+        }).addOnFailureListener(callback::onError);
     }
 }

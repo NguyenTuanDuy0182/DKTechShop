@@ -21,15 +21,14 @@ public class Product implements Serializable {
     private String thumbnailUrl = "";
     private String description = "";
     private Map<String, String> specs = new HashMap<>();
-    private List<String> variants = new ArrayList<>();
-    private String thumbnailUrl = "";
+    private List<ProductVariant> variants = new ArrayList<>();
 
     // Mandatory no-arg constructor for Firestore deserialization
     public Product() {}
 
     public Product(String id, String name, String brand, String category, String categoryLabel,
                    long price, long originalPrice, int discountPercent, double rating,
-                   int reviewCount, int stock, Map<String, String> specs, List<String> variants) {
+                   int reviewCount, int stock, Map<String, String> specs, List<?> variants) {
         this.id = id;
         this.name = name;
         this.brand = brand;
@@ -42,13 +41,14 @@ public class Product implements Serializable {
         this.reviewCount = reviewCount;
         this.stock = stock;
         this.specs = specs != null ? specs : new HashMap<>();
-        this.variants = variants != null ? variants : new ArrayList<>();
+        setVariants(variants);
         this.thumbnailUrl = "";
+        this.description = "";
     }
 
     public Product(String id, String name, String brand, String category, String categoryLabel,
                    long price, long originalPrice, int discountPercent, double rating,
-                   int reviewCount, int stock, Map<String, String> specs, List<String> variants,
+                   int reviewCount, int stock, Map<String, String> specs, List<?> variants,
                    String thumbnailUrl) {
         this(id, name, brand, category, categoryLabel, price, originalPrice, discountPercent, rating, reviewCount, stock, specs, variants);
         this.thumbnailUrl = thumbnailUrl != null ? thumbnailUrl : "";
@@ -77,13 +77,35 @@ public class Product implements Serializable {
     public int getStock() { return stock; }
     public void setStock(int stock) { this.stock = stock; }
     public String getThumbnailUrl() { return thumbnailUrl; }
-    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
+    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl != null ? thumbnailUrl : ""; }
     public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public void setDescription(String description) { this.description = description != null ? description : ""; }
     public Map<String, String> getSpecs() { return specs; }
-    public void setSpecs(Map<String, String> specs) { this.specs = specs; }
-    public List<String> getVariants() { return variants; }
-    public void setVariants(List<String> variants) { this.variants = variants; }
-    public String getThumbnailUrl() { return thumbnailUrl; }
-    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
+    public void setSpecs(Map<String, String> specs) { this.specs = specs != null ? specs : new HashMap<>(); }
+
+    public List<ProductVariant> getVariants() {
+        return variants;
+    }
+
+    public void setVariants(List<?> rawList) {
+        this.variants = new ArrayList<>();
+        if (rawList == null) return;
+        for (Object item : rawList) {
+            if (item instanceof ProductVariant) {
+                this.variants.add((ProductVariant) item);
+            } else if (item instanceof Map) {
+                Map<?, ?> map = (Map<?, ?>) item;
+                String name = map.get("name") != null ? map.get("name").toString() : "";
+                String colorHex = map.get("colorHex") != null ? map.get("colorHex").toString() : "";
+                long extra = 0L;
+                Object extraObj = map.get("extraPrice");
+                if (extraObj instanceof Number) {
+                    extra = ((Number) extraObj).longValue();
+                }
+                this.variants.add(new ProductVariant(name, colorHex, extra));
+            } else if (item instanceof String) {
+                this.variants.add(new ProductVariant((String) item, "", 0L));
+            }
+        }
+    }
 }

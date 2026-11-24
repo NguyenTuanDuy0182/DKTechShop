@@ -1,5 +1,7 @@
 package com.ecommerce.dktechshop.ui.detail;
 
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,6 +16,7 @@ import androidx.core.content.ContextCompat;
 import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
+import com.ecommerce.dktechshop.data.model.ProductVariant;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
@@ -23,14 +26,17 @@ import com.google.android.material.chip.ChipGroup;
 public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
 
     public interface OnVariantActionListener {
-        void onVariantSelected(Product product, String variant, int quantity, boolean isBuyNow);
+        void onVariantSelected(Product product, ProductVariant variant, int quantity, boolean isBuyNow);
     }
 
     private final Product product;
     private final boolean isBuyNow;
     private final OnVariantActionListener listener;
-    private String selectedVariant;
+    private ProductVariant selectedVariant;
     private int quantity = 1;
+
+    private TextView tvPrice;
+    private MaterialButton btnConfirm;
 
     public ProductVariantBottomSheetDialog(Product product, boolean isBuyNow, OnVariantActionListener listener) {
         this.product = product;
@@ -53,18 +59,17 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
 
         ImageView ivIcon = view.findViewById(R.id.iv_sheet_icon);
         TextView tvName = view.findViewById(R.id.tv_sheet_name);
-        TextView tvPrice = view.findViewById(R.id.tv_sheet_price);
+        tvPrice = view.findViewById(R.id.tv_sheet_price);
         TextView tvStock = view.findViewById(R.id.tv_sheet_stock);
         MaterialButton btnClose = view.findViewById(R.id.btn_sheet_close);
         ChipGroup chipGroup = view.findViewById(R.id.chip_group_sheet_variants);
         MaterialButton btnMinus = view.findViewById(R.id.btn_qty_minus);
         MaterialButton btnPlus = view.findViewById(R.id.btn_qty_plus);
         TextView tvQty = view.findViewById(R.id.tv_sheet_qty);
-        MaterialButton btnConfirm = view.findViewById(R.id.btn_sheet_confirm);
+        btnConfirm = view.findViewById(R.id.btn_sheet_confirm);
 
         if (product != null) {
             tvName.setText(product.getName());
-            tvPrice.setText(MockRepository.formatVND(product.getPrice()));
             tvStock.setText("Kho: " + product.getStock() + " sản phẩm");
 
             if (product.getThumbnailUrl() != null && !product.getThumbnailUrl().trim().isEmpty()) {
@@ -82,24 +87,45 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
                 }
             }
 
-            // Populate variant chips
             chipGroup.removeAllViews();
-            for (String variant : product.getVariants()) {
+            for (ProductVariant variant : product.getVariants()) {
                 Chip chip = new Chip(requireContext());
-                chip.setText(variant);
+                String title = variant.getName();
+                if (variant.getExtraPrice() > 0) {
+                    title += " (+" + MockRepository.formatVND(variant.getExtraPrice()) + ")";
+                }
+                chip.setText(title);
                 chip.setCheckable(true);
                 chip.setClickable(true);
-                if (variant.equals(selectedVariant)) {
+
+                if (variant.getColorHex() != null && !variant.getColorHex().trim().isEmpty()) {
+                    try {
+                        int color = Color.parseColor(variant.getColorHex().trim());
+                        GradientDrawable dot = new GradientDrawable();
+                        dot.setShape(GradientDrawable.OVAL);
+                        dot.setSize(36, 36);
+                        dot.setColor(color);
+                        dot.setStroke(2, 0x33000000);
+                        chip.setChipIcon(dot);
+                        chip.setChipIconVisible(true);
+                    } catch (Exception ignored) {}
+                }
+
+                if (selectedVariant != null && variant.getName().equals(selectedVariant.getName())) {
                     chip.setChecked(true);
                 }
+
                 chip.setOnCheckedChangeListener((buttonView, isChecked) -> {
                     if (isChecked) {
                         selectedVariant = variant;
+                        updatePriceDisplay();
                     }
                 });
                 chipGroup.addView(chip);
             }
         }
+
+        updatePriceDisplay();
 
         btnClose.setOnClickListener(v -> dismiss());
 
@@ -107,7 +133,7 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
             if (quantity > 1) {
                 quantity--;
                 tvQty.setText(String.valueOf(quantity));
-                updateConfirmButtonText(btnConfirm);
+                updatePriceDisplay();
             }
         });
 
@@ -115,11 +141,9 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
             if (product != null && quantity < product.getStock()) {
                 quantity++;
                 tvQty.setText(String.valueOf(quantity));
-                updateConfirmButtonText(btnConfirm);
+                updatePriceDisplay();
             }
         });
-
-        updateConfirmButtonText(btnConfirm);
 
         btnConfirm.setOnClickListener(v -> {
             if (listener != null) {
@@ -129,15 +153,24 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
         });
     }
 
-    private void updateConfirmButtonText(MaterialButton button) {
+    private void updatePriceDisplay() {
         if (product == null) return;
-        long total = product.getPrice() * quantity;
-        String action = isBuyNow ? "Mua ngay" : "Thêm vào giỏ";
-        button.setText(action + " • " + MockRepository.formatVND(total));
-        if (isBuyNow) {
-            button.setIconResource(R.drawable.ic_bolt);
-        } else {
-            button.setIconResource(R.drawable.ic_shopping_cart);
+        long extra = (selectedVariant != null) ? selectedVariant.getExtraPrice() : 0L;
+        long unitPrice = product.getPrice() + extra;
+        long total = unitPrice * quantity;
+
+        if (tvPrice != null) {
+            tvPrice.setText(MockRepository.formatVND(unitPrice));
+        }
+
+        if (btnConfirm != null) {
+            String action = isBuyNow ? "Mua ngay" : "Thêm vào giỏ";
+            btnConfirm.setText(action + " • " + MockRepository.formatVND(total));
+            if (isBuyNow) {
+                btnConfirm.setIconResource(R.drawable.ic_bolt);
+            } else {
+                btnConfirm.setIconResource(R.drawable.ic_shopping_cart);
+            }
         }
     }
 }

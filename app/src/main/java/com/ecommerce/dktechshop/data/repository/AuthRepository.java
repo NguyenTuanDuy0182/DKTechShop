@@ -250,6 +250,44 @@ public class AuthRepository {
                 .addOnFailureListener(e -> callback.onFailure(e.getMessage()));
     }
 
+    public void deleteAddress(String addressId, ActionCallback callback) {
+        FirebaseUser fbUser = mAuth.getCurrentUser();
+        if (fbUser == null) {
+            callback.onFailure("Chưa đăng nhập");
+            return;
+        }
+
+        mFirestore.collection("users")
+                .document(fbUser.getUid())
+                .collection("addresses")
+                .document(addressId)
+                .delete()
+                .addOnSuccessListener(aVoid -> callback.onSuccess())
+                .addOnFailureListener(e -> callback.onFailure(e.getMessage()));
+    }
+
+    public void updateAddress(Address address, ActionCallback callback) {
+        FirebaseUser fbUser = mAuth.getCurrentUser();
+        if (fbUser == null) {
+            callback.onFailure("Chưa đăng nhập");
+            return;
+        }
+
+        mFirestore.collection("users")
+                .document(fbUser.getUid())
+                .collection("addresses")
+                .document(address.getId())
+                .set(address)
+                .addOnSuccessListener(aVoid -> {
+                    if (address.isDefault()) {
+                        mFirestore.collection("users").document(fbUser.getUid())
+                                .update("address", address.getDetail());
+                    }
+                    callback.onSuccess();
+                })
+                .addOnFailureListener(e -> callback.onFailure(e.getMessage()));
+    }
+
     /**
      * Lấy danh sách địa chỉ từ subcollection users/{uid}/addresses.
      */
