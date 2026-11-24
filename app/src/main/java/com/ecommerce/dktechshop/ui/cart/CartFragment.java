@@ -11,22 +11,25 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.core.widget.NestedScrollView;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
+import com.ecommerce.dktechshop.data.model.Address;
 import com.ecommerce.dktechshop.data.model.CartItem;
-import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.ui.auth.AuthViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 
 import java.util.List;
 
-public class CartFragment extends Fragment implements MockRepository.OnDataChangeListener {
+public class CartFragment extends Fragment {
 
     private TextView tvCartTitle;
     private TextView tvUserInfo;
@@ -36,8 +39,18 @@ public class CartFragment extends Fragment implements MockRepository.OnDataChang
     private LinearLayout layoutEmpty;
     private LinearLayout layoutCheckoutBar;
     private TextView tvTotalPrice;
+    private MaterialButton btnCheckout;
+
+    private MaterialCardView cardPayCod;
+    private MaterialCardView cardPayVnpay;
+    private MaterialCardView cardPayMomo;
+    private RadioButton rbCod;
+    private RadioButton rbVnpay;
+    private RadioButton rbMomo;
 
     private String selectedPayment = "COD";
+    private CartViewModel cartViewModel;
+    private AuthViewModel authViewModel;
 
     @Nullable
     @Override
@@ -49,6 +62,9 @@ public class CartFragment extends Fragment implements MockRepository.OnDataChang
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        cartViewModel = new ViewModelProvider(requireActivity()).get(CartViewModel.class);
+        authViewModel = new ViewModelProvider(requireActivity()).get(AuthViewModel.class);
+
         tvCartTitle = view.findViewById(R.id.tv_cart_title);
         MaterialCardView cardAddress = view.findViewById(R.id.card_shipping_address);
         tvUserInfo = view.findViewById(R.id.tv_cart_user_info);
@@ -59,12 +75,16 @@ public class CartFragment extends Fragment implements MockRepository.OnDataChang
         layoutEmpty = view.findViewById(R.id.layout_cart_empty);
         layoutCheckoutBar = view.findViewById(R.id.layout_checkout_bar);
         tvTotalPrice = view.findViewById(R.id.tv_cart_total_price);
-        MaterialButton btnCheckout = view.findViewById(R.id.btn_cart_checkout);
+        btnCheckout = view.findViewById(R.id.btn_cart_checkout);
         MaterialButton btnShopNow = view.findViewById(R.id.btn_cart_shop_now);
 
-        RadioButton rbCod = view.findViewById(R.id.rb_pay_cod);
-        RadioButton rbVnpay = view.findViewById(R.id.rb_pay_vnpay);
-        RadioButton rbMomo = view.findViewById(R.id.rb_pay_momo);
+        cardPayCod = view.findViewById(R.id.card_pay_cod);
+        cardPayVnpay = view.findViewById(R.id.card_pay_vnpay);
+        cardPayMomo = view.findViewById(R.id.card_pay_momo);
+
+        rbCod = view.findViewById(R.id.rb_pay_cod);
+        rbVnpay = view.findViewById(R.id.rb_pay_vnpay);
+        rbMomo = view.findViewById(R.id.rb_pay_momo);
 
         cardAddress.setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity) {
@@ -72,20 +92,22 @@ public class CartFragment extends Fragment implements MockRepository.OnDataChang
             }
         });
 
-        adapter = new CartAdapter((item, delta) -> MockRepository.getInstance().updateCartItemQty(item.getItemId(), delta));
+        adapter = new CartAdapter((item, delta) -> cartViewModel.updateQuantity(item.getItemId(), delta));
 
         rvCart.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvCart.setAdapter(adapter);
 
-        rbCod.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) selectedPayment = "COD";
-        });
-        rbVnpay.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) selectedPayment = "VNPay QR";
-        });
-        rbMomo.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) selectedPayment = "Ví MoMo";
-        });
+        // Click listeners cho các phương thức thanh toán (chọn 1 duy nhất)
+        cardPayCod.setOnClickListener(v -> selectPaymentMethod("COD"));
+        rbCod.setOnClickListener(v -> selectPaymentMethod("COD"));
+
+        cardPayVnpay.setOnClickListener(v -> selectPaymentMethod("VNPay QR"));
+        rbVnpay.setOnClickListener(v -> selectPaymentMethod("VNPay QR"));
+
+        cardPayMomo.setOnClickListener(v -> selectPaymentMethod("Ví MoMo"));
+        rbMomo.setOnClickListener(v -> selectPaymentMethod("Ví MoMo"));
+
+        selectPaymentMethod("COD");
 
         btnShopNow.setOnClickListener(v -> {
             if (getActivity() instanceof MainActivity) {
@@ -93,59 +115,165 @@ public class CartFragment extends Fragment implements MockRepository.OnDataChang
             }
         });
 
+        // Đặt hàng an toàn qua CartViewModel.checkout
         btnCheckout.setOnClickListener(v -> {
-            Order order = MockRepository.getInstance().createOrder(selectedPayment);
+            List<CartItem> items = cartViewModel.getCartItems().getValue();
+            if (items == null || items.isEmpty()) {
+                Toast.makeText(requireContext(), "Giỏ hàng đang trống", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Address targetAddress = null;
+            List<Address> addresses = authViewModel.getAddresses().getValue();
+            if (addresses != null) {
+                for (Address a : addresses) {
+                    if (a.isDefault()) {
+                        targetAddress = a;
+                        break;
+                    }
+                }
+                if (targetAddress == null && !addresses.isEmpty()) {
+                    targetAddress = addresses.get(0);
+                }
+            }
+
+            if (targetAddress == null) {
+                targetAddress = new Address("", "Mặc định", MockRepository.getInstance().getDefaultAddressDetail(), true);
+            }
+
+            cartViewModel.checkout(targetAddress, selectedPayment);
+        });
+
+        observeViewModel();
+        updateAddressUI();
+    }
+
+    /**
+     * Đảm bảo chỉ 1 phương thức thanh toán được chọn tại một thời điểm
+     */
+    private void selectPaymentMethod(String method) {
+        selectedPayment = method;
+
+        boolean isCod = "COD".equals(method);
+        boolean isVnpay = "VNPay QR".equals(method);
+        boolean isMomo = "Ví MoMo".equals(method);
+
+        if (rbCod != null) rbCod.setChecked(isCod);
+        if (rbVnpay != null) rbVnpay.setChecked(isVnpay);
+        if (rbMomo != null) rbMomo.setChecked(isMomo);
+
+        if (!isAdded()) return;
+
+        int colorPrimary = ContextCompat.getColor(requireContext(), R.color.md_theme_light_primary);
+        int colorOutline = ContextCompat.getColor(requireContext(), R.color.md_theme_light_outlineVariant);
+        int bgSelected = ContextCompat.getColor(requireContext(), R.color.md_theme_light_secondaryContainer);
+        int bgDefault = ContextCompat.getColor(requireContext(), R.color.md_theme_light_surfaceContainerLowest);
+
+        if (cardPayCod != null) {
+            cardPayCod.setStrokeColor(isCod ? colorPrimary : colorOutline);
+            cardPayCod.setCardBackgroundColor(isCod ? bgSelected : bgDefault);
+        }
+        if (cardPayVnpay != null) {
+            cardPayVnpay.setStrokeColor(isVnpay ? colorPrimary : colorOutline);
+            cardPayVnpay.setCardBackgroundColor(isVnpay ? bgSelected : bgDefault);
+        }
+        if (cardPayMomo != null) {
+            cardPayMomo.setStrokeColor(isMomo ? colorPrimary : colorOutline);
+            cardPayMomo.setCardBackgroundColor(isMomo ? bgSelected : bgDefault);
+        }
+    }
+
+    private void observeViewModel() {
+        // Lắng nghe danh sách cartItems từ CartViewModel (Realtime Firestore)
+        cartViewModel.getCartItems().observe(getViewLifecycleOwner(), items -> {
+            adapter.setCartItems(items);
+
+            int count = 0;
+            if (items != null) {
+                for (CartItem item : items) {
+                    count += item.getQuantity();
+                }
+            }
+            tvCartTitle.setText("Giỏ hàng (" + count + ")");
+
+            if (items == null || items.isEmpty()) {
+                scrollContent.setVisibility(View.GONE);
+                layoutCheckoutBar.setVisibility(View.GONE);
+                layoutEmpty.setVisibility(View.VISIBLE);
+            } else {
+                scrollContent.setVisibility(View.VISIBLE);
+                layoutCheckoutBar.setVisibility(View.VISIBLE);
+                layoutEmpty.setVisibility(View.GONE);
+            }
+        });
+
+        // Lắng nghe tổng tiền từ CartViewModel
+        cartViewModel.getTotalAmount().observe(getViewLifecycleOwner(), total -> {
+            long totalVal = total != null ? total.longValue() : 0L;
+            tvTotalPrice.setText(MockRepository.formatVND(totalVal));
+        });
+
+        // Lắng nghe trạng thái đặt hàng thành công
+        cartViewModel.getCheckoutSuccessOrder().observe(getViewLifecycleOwner(), order -> {
             if (order != null) {
                 Toast.makeText(requireContext(), "Đặt hàng thành công (" + order.getOrderId() + ")!", Toast.LENGTH_SHORT).show();
+                cartViewModel.clearCheckoutSuccess();
                 if (getActivity() instanceof MainActivity) {
                     ((MainActivity) getActivity()).navigateToTab(R.id.nav_orders);
                 }
             }
         });
 
-        refreshCartUI();
-        MockRepository.getInstance().addListener(this);
+        // Lắng nghe trạng thái loading khi đặt hàng
+        cartViewModel.getIsLoading().observe(getViewLifecycleOwner(), loading -> {
+            boolean isLoading = Boolean.TRUE.equals(loading);
+            if (btnCheckout != null) {
+                btnCheckout.setEnabled(!isLoading);
+                btnCheckout.setText(isLoading ? "Đang xử lý..." : "Đặt hàng");
+            }
+        });
+
+        // Lắng nghe thông báo lỗi
+        cartViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
+            if (error != null && !error.isEmpty()) {
+                Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Lắng nghe thay đổi User profile
+        authViewModel.getCurrentUser().observe(getViewLifecycleOwner(), user -> {
+            updateAddressUI();
+        });
     }
 
-    private void refreshCartUI() {
-        List<CartItem> items = MockRepository.getInstance().getCartItems();
-        int count = MockRepository.getInstance().getCartCount();
-        long total = MockRepository.getInstance().getCartTotal();
-
-        tvCartTitle.setText("Giỏ hàng (" + count + ")");
-        tvUserInfo.setText(MockRepository.getInstance().getCurrentUser().getName() + " • " + MockRepository.getInstance().getCurrentUser().getPhone());
-        tvAddressDetail.setText(MockRepository.getInstance().getDefaultAddressDetail());
-        tvTotalPrice.setText(MockRepository.formatVND(total));
-
-        adapter.setCartItems(items);
-
-        if (items.isEmpty()) {
-            scrollContent.setVisibility(View.GONE);
-            layoutCheckoutBar.setVisibility(View.GONE);
-            layoutEmpty.setVisibility(View.VISIBLE);
-        } else {
-            scrollContent.setVisibility(View.VISIBLE);
-            layoutCheckoutBar.setVisibility(View.VISIBLE);
-            layoutEmpty.setVisibility(View.GONE);
+    private void updateAddressUI() {
+        if (tvUserInfo != null && tvAddressDetail != null) {
+            String name = "";
+            String phone = "";
+            com.ecommerce.dktechshop.data.model.User u = authViewModel.getCurrentUser().getValue();
+            if (u != null) {
+                name = u.getName();
+                phone = u.getPhone();
+            }
+            if (name == null || name.trim().isEmpty()) {
+                com.google.firebase.auth.FirebaseUser fbUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+                if (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty()) {
+                    name = fbUser.getDisplayName();
+                } else {
+                    name = MockRepository.getInstance().getCurrentUser().getName();
+                }
+            }
+            if (phone == null || phone.trim().isEmpty()) {
+                phone = MockRepository.getInstance().getCurrentUser().getPhone();
+            }
+            tvUserInfo.setText(name + (!phone.isEmpty() ? " • " + phone : ""));
+            tvAddressDetail.setText(MockRepository.getInstance().getDefaultAddressDetail());
         }
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        refreshCartUI();
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        MockRepository.getInstance().removeListener(this);
-    }
-
-    @Override
-    public void onDataChanged() {
-        if (isAdded()) {
-            refreshCartUI();
-        }
+        updateAddressUI();
     }
 }

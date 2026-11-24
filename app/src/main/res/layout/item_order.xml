@@ -112,11 +112,11 @@
                 style="@style/Widget.DKTechShop.Button.Pill"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:text="Cập nhật trạng thái →"
+                android:text="Hủy đơn"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                app:backgroundTint="@color/md_theme_light_primaryContainer"
-                android:textColor="@color/md_theme_light_onPrimaryContainer" />
+                app:backgroundTint="@color/md_theme_light_errorContainer"
+                android:textColor="@color/md_theme_light_onErrorContainer" />
         </LinearLayout>
 
     </LinearLayout>

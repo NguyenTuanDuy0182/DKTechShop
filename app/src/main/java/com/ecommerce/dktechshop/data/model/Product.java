@@ -20,6 +20,7 @@ public class Product implements Serializable {
     private int stock = 0;
     private Map<String, String> specs = new HashMap<>();
     private List<String> variants = new ArrayList<>();
+    private String thumbnailUrl = "";
 
     // Mandatory no-arg constructor for Firestore deserialization
     public Product() {}
@@ -40,6 +41,15 @@ public class Product implements Serializable {
         this.stock = stock;
         this.specs = specs != null ? specs : new HashMap<>();
         this.variants = variants != null ? variants : new ArrayList<>();
+        this.thumbnailUrl = "";
+    }
+
+    public Product(String id, String name, String brand, String category, String categoryLabel,
+                   long price, long originalPrice, int discountPercent, double rating,
+                   int reviewCount, int stock, Map<String, String> specs, List<String> variants,
+                   String thumbnailUrl) {
+        this(id, name, brand, category, categoryLabel, price, originalPrice, discountPercent, rating, reviewCount, stock, specs, variants);
+        this.thumbnailUrl = thumbnailUrl != null ? thumbnailUrl : "";
     }
 
     public String getId() { return id; }
@@ -68,4 +78,6 @@ public class Product implements Serializable {
     public void setSpecs(Map<String, String> specs) { this.specs = specs; }
     public List<String> getVariants() { return variants; }
     public void setVariants(List<String> variants) { this.variants = variants; }
+    public String getThumbnailUrl() { return thumbnailUrl; }
+    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
 }

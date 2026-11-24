@@ -9,23 +9,24 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 
-import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.ecommerce.dktechshop.ui.auth.AuthActivity;
 import com.ecommerce.dktechshop.ui.auth.AuthViewModel;
 import com.ecommerce.dktechshop.ui.cart.CartFragment;
+import com.ecommerce.dktechshop.ui.cart.CartViewModel;
 import com.ecommerce.dktechshop.ui.home.HomeFragment;
 import com.ecommerce.dktechshop.ui.orders.OrdersFragment;
 import com.ecommerce.dktechshop.ui.profile.ProfileFragment;
 import com.google.android.material.badge.BadgeDrawable;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
-import androidx.lifecycle.ViewModelProvider;
 
-public class MainActivity extends AppCompatActivity implements MockRepository.OnDataChangeListener {
+public class MainActivity extends AppCompatActivity {
 
     private BottomNavigationView bottomNav;
     private BadgeDrawable cartBadge;
+    private CartViewModel cartViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,17 +69,25 @@ public class MainActivity extends AppCompatActivity implements MockRepository.On
             // Do not reload fragment on re-selection to keep current scroll position
         });
 
-        // Set up Cart badge
+        // Set up Cart badge & CartViewModel Realtime Sync
         cartBadge = bottomNav.getOrCreateBadge(R.id.nav_cart);
-        updateCartBadge();
+        cartViewModel = new ViewModelProvider(this).get(CartViewModel.class);
+        cartViewModel.getCartCount().observe(this, count -> {
+            if (cartBadge != null) {
+                if (count != null && count > 0) {
+                    cartBadge.setVisible(true);
+                    cartBadge.setNumber(count);
+                } else {
+                    cartBadge.setVisible(false);
+                }
+            }
+        });
 
         // Default or directed tab
         if (savedInstanceState == null) {
             int targetTab = getIntent().getIntExtra("navigate_tab", R.id.nav_home);
             navigateToTab(targetTab);
         }
-
-        MockRepository.getInstance().addListener(this);
     }
 
     @Override
@@ -92,8 +101,6 @@ public class MainActivity extends AppCompatActivity implements MockRepository.On
     public void navigateToTab(int menuItemId) {
         if (bottomNav != null) {
             if (bottomNav.getSelectedItemId() == menuItemId) {
-                // If item is already selected, setSelectedItemId won't trigger onItemSelectedListener,
-                // so we manually load the fragment to ensure it is displayed on launch
                 loadFragmentForId(menuItemId);
             } else {
                 bottomNav.setSelectedItemId(menuItemId);
@@ -118,28 +125,5 @@ public class MainActivity extends AppCompatActivity implements MockRepository.On
                 .beginTransaction()
                 .replace(R.id.nav_host_fragment, fragment)
                 .commit();
-    }
-
-    private void updateCartBadge() {
-        if (cartBadge != null) {
-            int count = MockRepository.getInstance().getCartCount();
-            if (count > 0) {
-                cartBadge.setVisible(true);
-                cartBadge.setNumber(count);
-            } else {
-                cartBadge.setVisible(false);
-            }
-        }
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        MockRepository.getInstance().removeListener(this);
-    }
-
-    @Override
-    public void onDataChanged() {
-        runOnUiThread(this::updateCartBadge);
     }
 }

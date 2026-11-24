@@ -11,11 +11,13 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.ui.cart.CartViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
@@ -29,11 +31,14 @@ public class ProductDetailActivity extends AppCompatActivity {
     private Product product;
     private MaterialButton btnFavorite;
     private TextView tvCartBadge;
+    private CartViewModel cartViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_product_detail);
+
+        cartViewModel = new ViewModelProvider(this).get(CartViewModel.class);
 
         String productId = getIntent().getStringExtra(EXTRA_PRODUCT_ID);
         if (productId != null) {
@@ -90,7 +95,18 @@ public class ProductDetailActivity extends AppCompatActivity {
         }
 
         updateFavoriteIcon();
-        updateCartBadge();
+
+        // Lắng nghe realtime cartCount từ CartViewModel
+        cartViewModel.getCartCount().observe(this, count -> {
+            if (tvCartBadge != null) {
+                if (count != null && count > 0) {
+                    tvCartBadge.setVisibility(View.VISIBLE);
+                    tvCartBadge.setText(String.valueOf(count));
+                } else {
+                    tvCartBadge.setVisibility(View.GONE);
+                }
+            }
+        });
 
         btnBack.setOnClickListener(v -> finish());
 
@@ -168,21 +184,10 @@ public class ProductDetailActivity extends AppCompatActivity {
         }
     }
 
-    private void updateCartBadge() {
-        int count = MockRepository.getInstance().getCartCount();
-        if (count > 0) {
-            tvCartBadge.setVisibility(View.VISIBLE);
-            tvCartBadge.setText(String.valueOf(count));
-        } else {
-            tvCartBadge.setVisibility(View.GONE);
-        }
-    }
-
     private void openVariantSheet(boolean isBuyNow) {
         ProductVariantBottomSheetDialog sheet = new ProductVariantBottomSheetDialog(product, isBuyNow,
                 (p, variant, qty, buyNow) -> {
-                    MockRepository.getInstance().addToCart(p, variant, qty);
-                    updateCartBadge();
+                    cartViewModel.addToCart(p, variant, qty);
                     if (buyNow) {
                         Intent intent = new Intent(this, MainActivity.class);
                         intent.putExtra("navigate_tab", R.id.nav_cart);

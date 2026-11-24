@@ -7,8 +7,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.CartItem;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
@@ -31,7 +33,7 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.ViewHolder> {
     }
 
     public void setCartItems(List<CartItem> items) {
-        this.cartItems = items;
+        this.cartItems = items != null ? items : new ArrayList<>();
         notifyDataSetChanged();
     }
 
@@ -50,12 +52,27 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.ViewHolder> {
         holder.tvPrice.setText(MockRepository.formatVND(item.getPrice()));
         holder.tvQty.setText(String.valueOf(item.getQuantity()));
 
+        int fallbackIcon;
         if ("mouse".equalsIgnoreCase(item.getCategory())) {
-            holder.ivIcon.setImageResource(R.drawable.ic_mouse);
+            fallbackIcon = R.drawable.ic_mouse;
         } else if ("headphone".equalsIgnoreCase(item.getCategory())) {
-            holder.ivIcon.setImageResource(R.drawable.ic_headset);
+            fallbackIcon = R.drawable.ic_headset;
         } else {
-            holder.ivIcon.setImageResource(R.drawable.ic_devices);
+            fallbackIcon = R.drawable.ic_devices;
+        }
+
+        // Load ảnh sản phẩm bằng Glide qua cartItem.getThumbnailUrl()
+        if (item.getThumbnailUrl() != null && !item.getThumbnailUrl().trim().isEmpty()) {
+            holder.ivIcon.setImageTintList(null);
+            Glide.with(holder.itemView.getContext())
+                    .load(item.getThumbnailUrl())
+                    .placeholder(fallbackIcon)
+                    .error(fallbackIcon)
+                    .centerCrop()
+                    .into(holder.ivIcon);
+        } else {
+            holder.ivIcon.setImageTintList(ContextCompat.getColorStateList(holder.itemView.getContext(), R.color.md_theme_light_primary));
+            holder.ivIcon.setImageResource(fallbackIcon);
         }
 
         holder.btnMinus.setOnClickListener(v -> {

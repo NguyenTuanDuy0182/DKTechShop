@@ -231,10 +231,22 @@ public class MockRepository {
         List<Address> addresses = new ArrayList<>();
         addresses.add(new Address("addr_1", "Nhà riêng", "227 Nguyễn Văn Cừ, P.4, Q.5, TP.HCM", true));
         addresses.add(new Address("addr_2", "Văn phòng", "Tòa nhà Bitexco, Q.1, TP.HCM", false));
+
+        com.google.firebase.auth.FirebaseUser fbUser = null;
+        try {
+            fbUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+        } catch (Exception ignored) {}
+
+        String initialName = (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty())
+                ? fbUser.getDisplayName()
+                : "Người dùng";
+        String initialEmail = (fbUser != null && fbUser.getEmail() != null) ? fbUser.getEmail() : "user@dkshop.vn";
+        String initialUid = (fbUser != null) ? fbUser.getUid() : "uid_default";
+
         currentUser = new User(
-                "uid_duy_2026",
-                "Nguyễn Tuấn Duy",
-                "duy.nguyen@techgear.vn",
+                initialUid,
+                initialName,
+                initialEmail,
                 "0909 123 456",
                 "227 Nguyễn Văn Cừ, P.4, Q.5, TP.HCM",
                 addresses,
@@ -340,9 +352,13 @@ public class MockRepository {
     }
 
     public Order createOrder(String paymentMethod) {
-        if (cartItems.isEmpty()) return null;
+        return createOrderFromCart(cartItems, getCartTotal(), paymentMethod);
+    }
+
+    public Order createOrderFromCart(List<CartItem> itemsList, long total, String paymentMethod) {
+        if (itemsList == null || itemsList.isEmpty()) return null;
         List<OrderItem> items = new ArrayList<>();
-        for (CartItem ci : cartItems) {
+        for (CartItem ci : itemsList) {
             items.add(new OrderItem(ci.getProductName(), ci.getVariant(), ci.getPrice(), ci.getQuantity()));
         }
         String orderId = "TG-2026-" + (1000 + (int)(Math.random() * 9000));
@@ -352,13 +368,24 @@ public class MockRepository {
                 "Đang xử lý",
                 paymentMethod,
                 getDefaultAddressDetail(),
-                getCartTotal(),
+                total,
                 items
         );
         orders.add(0, order);
         cartItems.clear();
         notifyListeners();
         return order;
+    }
+
+    public List<Order> getOrders() {
+        return orders;
+    }
+
+    public void addOrder(Order order) {
+        if (order != null) {
+            orders.add(0, order);
+            notifyListeners();
+        }
     }
 
     public List<Order> getOrders(String statusFilter) {
@@ -370,6 +397,16 @@ public class MockRepository {
             }
         }
         return result;
+    }
+
+    public void updateOrderStatus(String orderId, String newStatus) {
+        for (Order o : orders) {
+            if (o.getOrderId().equals(orderId)) {
+                o.setStatus(newStatus);
+                notifyListeners();
+                return;
+            }
+        }
     }
 
     public void advanceOrderStatus(String orderId) {

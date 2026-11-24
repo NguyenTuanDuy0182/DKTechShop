@@ -23,7 +23,9 @@ import java.util.List;
 public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.ViewHolder> {
 
     public interface OnOrderActionListener {
-        void onActionClick(Order order);
+        void onCancelOrder(Order order);
+        void onConfirmReceived(Order order);
+        void onReorder(Order order);
     }
 
     private List<Order> orderList = new ArrayList<>();
@@ -34,7 +36,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.ViewHolder> 
     }
 
     public void setOrders(List<Order> orders) {
-        this.orderList = orders;
+        this.orderList = orders != null ? orders : new ArrayList<>();
         notifyDataSetChanged();
     }
 
@@ -53,23 +55,48 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.ViewHolder> 
         holder.tvStatusPill.setText(o.getStatus());
         holder.tvTotal.setText(MockRepository.formatVND(o.getTotalAmount()));
 
-        // Status pill style
+        // Thiết lập trạng thái và hành động phù hợp với vai trò Người mua (Customer)
         if ("Đang xử lý".equalsIgnoreCase(o.getStatus())) {
             holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_tertiaryContainer)));
             holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onTertiaryContainer));
-            holder.btnAction.setText("Cập nhật trạng thái →");
+            holder.btnAction.setText("Hủy đơn");
+            holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_errorContainer)));
+            holder.btnAction.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onErrorContainer));
             holder.btnAction.setVisibility(View.VISIBLE);
+            holder.btnAction.setOnClickListener(v -> {
+                if (listener != null) listener.onCancelOrder(o);
+            });
         } else if ("Đang giao".equalsIgnoreCase(o.getStatus())) {
             holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_primaryContainer)));
             holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onPrimaryContainer));
-            holder.btnAction.setText("Cập nhật trạng thái →");
+            holder.btnAction.setText("Đã nhận hàng");
+            holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_primaryContainer)));
+            holder.btnAction.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onPrimaryContainer));
             holder.btnAction.setVisibility(View.VISIBLE);
+            holder.btnAction.setOnClickListener(v -> {
+                if (listener != null) listener.onConfirmReceived(o);
+            });
+        } else if ("Đã hủy".equalsIgnoreCase(o.getStatus())) {
+            holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_errorContainer)));
+            holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onErrorContainer));
+            holder.btnAction.setText("Mua lại");
+            holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_surfaceContainerHigh)));
+            holder.btnAction.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onSurface));
+            holder.btnAction.setVisibility(View.VISIBLE);
+            holder.btnAction.setOnClickListener(v -> {
+                if (listener != null) listener.onReorder(o);
+            });
         } else {
             // Hoàn thành
             holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.green_container)));
             holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.green_accent));
             holder.btnAction.setText("Mua lại");
+            holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.green_container)));
+            holder.btnAction.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.green_accent));
             holder.btnAction.setVisibility(View.VISIBLE);
+            holder.btnAction.setOnClickListener(v -> {
+                if (listener != null) listener.onReorder(o);
+            });
         }
 
         // Populate items sub-container
@@ -106,10 +133,6 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.ViewHolder> 
 
             holder.layoutItemsContainer.addView(row);
         }
-
-        holder.btnAction.setOnClickListener(v -> {
-            if (listener != null) listener.onActionClick(o);
-        });
     }
 
     @Override

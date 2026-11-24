@@ -6,6 +6,7 @@ import java.util.List;
 
 public class Order implements Serializable {
     private String orderId = "";
+    private String userId = "";
     private String createdAt = "";
     private String status = "Đang xử lý";
     private String paymentMethod = "COD";
@@ -18,7 +19,13 @@ public class Order implements Serializable {
 
     public Order(String orderId, String createdAt, String status, String paymentMethod,
                  String shippingAddress, long totalAmount, List<OrderItem> items) {
+        this(orderId, "", createdAt, status, paymentMethod, shippingAddress, totalAmount, items);
+    }
+
+    public Order(String orderId, String userId, String createdAt, String status, String paymentMethod,
+                 String shippingAddress, long totalAmount, List<OrderItem> items) {
         this.orderId = orderId;
+        this.userId = userId != null ? userId : "";
         this.createdAt = createdAt;
         this.status = status;
         this.paymentMethod = paymentMethod;
@@ -29,6 +36,8 @@ public class Order implements Serializable {
 
     public String getOrderId() { return orderId; }
     public void setOrderId(String orderId) { this.orderId = orderId; }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
     public String getStatus() { return status; }
