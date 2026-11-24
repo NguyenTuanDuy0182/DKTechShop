@@ -36,7 +36,9 @@ public class HomeFragment extends Fragment {
     private ProductGridAdapter adapter;
     private TextView tvSectionTitle;
     private TextView tvGreetingName;
-    private String currentCategory = "all";
+    private ShopViewModel viewModel;
+    private CircularProgressIndicator progressLoading;
+    private RecyclerView rvProducts;
     private CartViewModel cartViewModel;
     private AuthViewModel authViewModel;
 
