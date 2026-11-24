@@ -157,7 +157,7 @@ public class OrderRepository {
         FirebaseUser user = mAuth.getCurrentUser();
         if (user == null) {
             if (callback != null) {
-                callback.onSuccess(MockRepository.getInstance().getOrders());
+                callback.onSuccess(new ArrayList<>());
             }
             return null;
         }
@@ -168,7 +168,7 @@ public class OrderRepository {
                 .whereEqualTo("userId", currentUserId)
                 .addSnapshotListener((snapshots, e) -> {
                     if (e != null) {
-                        listenOrdersFallback(currentUserId, callback);
+                        fetchOrdersFallback(currentUserId, callback);
                         return;
                     }
 
@@ -185,28 +185,20 @@ public class OrderRepository {
                         }
                     }
 
-                    if (list.isEmpty()) {
-                        listenOrdersFallback(currentUserId, callback);
-                    } else {
-                        sortOrdersByDateDesc(list);
-                        if (callback != null) callback.onSuccess(list);
-                    }
+                    sortOrdersByDateDesc(list);
+                    if (callback != null) callback.onSuccess(list);
                 });
     }
 
     /**
-     * Fallback lắng nghe danh sách đơn hàng từ users/{uid}/orders
+     * Fallback tải danh sách đơn hàng từ users/{uid}/orders khi orders bị lỗi truy vấn
      */
-    public ListenerRegistration listenOrdersFallback(String uid, OrderListCallback callback) {
-        return mFirestore.collection("users")
+    private void fetchOrdersFallback(String uid, OrderListCallback callback) {
+        mFirestore.collection("users")
                 .document(uid)
                 .collection("orders")
-                .addSnapshotListener((subSnapshots, subError) -> {
-                    if (subError != null) {
-                        if (callback != null) callback.onSuccess(MockRepository.getInstance().getOrders());
-                        return;
-                    }
-
+                .get()
+                .addOnSuccessListener(subSnapshots -> {
                     List<Order> subList = new ArrayList<>();
                     if (subSnapshots != null) {
                         for (DocumentSnapshot doc : subSnapshots.getDocuments()) {
@@ -220,12 +212,11 @@ public class OrderRepository {
                         }
                     }
 
-                    if (subList.isEmpty()) {
-                        if (callback != null) callback.onSuccess(MockRepository.getInstance().getOrders());
-                    } else {
-                        sortOrdersByDateDesc(subList);
-                        if (callback != null) callback.onSuccess(subList);
-                    }
+                    sortOrdersByDateDesc(subList);
+                    if (callback != null) callback.onSuccess(subList);
+                })
+                .addOnFailureListener(err -> {
+                    if (callback != null) callback.onFailure(err.getMessage());
                 });
     }
 

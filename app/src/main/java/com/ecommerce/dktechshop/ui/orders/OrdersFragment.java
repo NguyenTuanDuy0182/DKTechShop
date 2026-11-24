@@ -19,12 +19,8 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
-import com.ecommerce.dktechshop.data.model.CartItem;
 import com.ecommerce.dktechshop.data.model.Order;
-import com.ecommerce.dktechshop.data.model.OrderItem;
-import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.repository.CartRepository;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -110,36 +106,28 @@ public class OrdersFragment extends Fragment {
 
             @Override
             public void onReorder(Order order) {
-                if (order.getItems() != null && !order.getItems().isEmpty()) {
-                    for (OrderItem oi : order.getItems()) {
-                        Product p = MockRepository.getInstance().getProductById(oi.getProductId());
-                        String thumb = (p != null) ? p.getThumbnailUrl() : "";
-                        String category = (p != null) ? p.getCategory() : "";
-                        String itemId = CartRepository.generateItemId(oi.getProductId(), oi.getVariant());
-                        CartItem ci = new CartItem(
-                                itemId,
-                                oi.getProductId(),
-                                oi.getProductName(),
-                                category,
-                                oi.getPrice(),
-                                oi.getVariant(),
-                                oi.getQuantity(),
-                                thumb
-                        );
-                        CartRepository.getInstance().upsertCartItem(ci, null);
-                        if (p != null) {
-                            MockRepository.getInstance().addToCart(p, oi.getVariant(), oi.getQuantity());
-                        }
-                    }
-                    Toast.makeText(requireContext(), "Đã thêm các sản phẩm vào giỏ hàng!", Toast.LENGTH_SHORT).show();
-                    if (getActivity() instanceof MainActivity) {
-                        ((MainActivity) getActivity()).navigateToTab(R.id.nav_cart);
-                    }
-                } else {
+                if (order == null || order.getItems() == null || order.getItems().isEmpty()) {
                     if (getActivity() instanceof MainActivity) {
                         ((MainActivity) getActivity()).navigateToTab(R.id.nav_home);
                     }
+                    return;
                 }
+
+                new ViewModelProvider(requireActivity()).get(com.ecommerce.dktechshop.ui.cart.CartViewModel.class)
+                        .reorder(order, new CartRepository.ActionCallback() {
+                            @Override
+                            public void onSuccess() {
+                                Toast.makeText(requireContext(), "Đã thêm các sản phẩm vào giỏ hàng!", Toast.LENGTH_SHORT).show();
+                                if (getActivity() instanceof MainActivity) {
+                                    ((MainActivity) getActivity()).navigateToTab(R.id.nav_cart);
+                                }
+                            }
+
+                            @Override
+                            public void onFailure(String error) {
+                                Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
+                            }
+                        });
             }
         });
 

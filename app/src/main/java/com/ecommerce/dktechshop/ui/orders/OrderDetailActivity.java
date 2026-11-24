@@ -21,7 +21,6 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
-import com.ecommerce.dktechshop.data.model.CartItem;
 import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.OrderItem;
 import com.ecommerce.dktechshop.data.model.Product;
@@ -35,7 +34,6 @@ import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 
 public class OrderDetailActivity extends AppCompatActivity {
@@ -227,22 +225,25 @@ public class OrderDetailActivity extends AppCompatActivity {
                 if (cur != null) orderUserId = cur.getUid();
             }
             if (orderUserId != null && !orderUserId.trim().isEmpty()) {
-                FirebaseFirestore.getInstance().collection("users").document(orderUserId).get()
-                        .addOnSuccessListener(doc -> {
-                            if (doc != null && doc.exists()) {
-                                String dbName = doc.getString("name");
-                                String dbPhone = doc.getString("phone");
-                                if ((order.getRecipientName() == null || order.getRecipientName().trim().isEmpty())
-                                        && dbName != null && !dbName.trim().isEmpty()) {
-                                    tvRecipientName.setText("Người nhận: " + dbName);
-                                }
-                                if ((order.getRecipientPhone() == null || order.getRecipientPhone().trim().isEmpty())
-                                        && dbPhone != null && !dbPhone.trim().isEmpty()) {
-                                    tvRecipientPhone.setVisibility(View.VISIBLE);
-                                    tvRecipientPhone.setText("Số điện thoại: " + dbPhone.trim());
-                                }
+                com.ecommerce.dktechshop.data.repository.AuthRepository.getInstance().fetchUserById(orderUserId, new com.ecommerce.dktechshop.data.repository.AuthRepository.AuthCallback() {
+                    @Override
+                    public void onSuccess(User dbUser) {
+                        if (dbUser != null) {
+                            if ((order.getRecipientName() == null || order.getRecipientName().trim().isEmpty())
+                                    && dbUser.getName() != null && !dbUser.getName().trim().isEmpty()) {
+                                tvRecipientName.setText("Người nhận: " + dbUser.getName());
                             }
-                        });
+                            if ((order.getRecipientPhone() == null || order.getRecipientPhone().trim().isEmpty())
+                                    && dbUser.getPhone() != null && !dbUser.getPhone().trim().isEmpty()) {
+                                tvRecipientPhone.setVisibility(View.VISIBLE);
+                                tvRecipientPhone.setText("Số điện thoại: " + dbUser.getPhone().trim());
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(String error) {}
+                });
             }
         }
 
@@ -488,9 +489,7 @@ public class OrderDetailActivity extends AppCompatActivity {
 
                         @Override
                         public void onFailure(String error) {
-                            currentOrder.setStatus("Đã hủy");
-                            bindOrder(currentOrder);
-                            Toast.makeText(OrderDetailActivity.this, "Đã hủy đơn hàng thành công!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(OrderDetailActivity.this, "Không thể hủy đơn: " + error, Toast.LENGTH_SHORT).show();
                         }
                     });
                 })
@@ -514,9 +513,7 @@ public class OrderDetailActivity extends AppCompatActivity {
 
                         @Override
                         public void onFailure(String error) {
-                            currentOrder.setStatus("Đã giao");
-                            bindOrder(currentOrder);
-                            Toast.makeText(OrderDetailActivity.this, "Cảm ơn bạn! Đơn hàng đã hoàn thành.", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(OrderDetailActivity.this, "Không thể cập nhật: " + error, Toast.LENGTH_SHORT).show();
                         }
                     });
                 })
@@ -530,34 +527,23 @@ public class OrderDetailActivity extends AppCompatActivity {
             return;
         }
 
-        for (OrderItem oi : currentOrder.getItems()) {
-            Product p = MockRepository.getInstance().getProductById(oi.getProductId());
-            String thumb = (p != null) ? p.getThumbnailUrl() : "";
-            String category = (p != null) ? p.getCategory() : "";
-            String itemId = CartRepository.generateItemId(oi.getProductId(), oi.getVariant());
-            CartItem ci = new CartItem(
-                    itemId,
-                    oi.getProductId(),
-                    oi.getProductName(),
-                    category,
-                    oi.getPrice(),
-                    oi.getVariant(),
-                    oi.getQuantity(),
-                    thumb
-            );
-            CartRepository.getInstance().upsertCartItem(ci, null);
-            if (p != null) {
-                MockRepository.getInstance().addToCart(p, oi.getVariant(), oi.getQuantity());
-            }
-        }
+        new androidx.lifecycle.ViewModelProvider(this).get(com.ecommerce.dktechshop.ui.cart.CartViewModel.class)
+                .reorder(currentOrder, new CartRepository.ActionCallback() {
+                    @Override
+                    public void onSuccess() {
+                        Toast.makeText(OrderDetailActivity.this, "Đã thêm các món vào giỏ hàng!", Toast.LENGTH_SHORT).show();
+                        Intent intent = new Intent(OrderDetailActivity.this, MainActivity.class);
+                        intent.putExtra("navigate_tab", R.id.nav_cart);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                        startActivity(intent);
+                        finish();
+                    }
 
-        Toast.makeText(this, "Đã thêm các món vào giỏ hàng!", Toast.LENGTH_SHORT).show();
-
-        Intent intent = new Intent(this, MainActivity.class);
-        intent.putExtra("navigate_tab", R.id.nav_cart);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        startActivity(intent);
-        finish();
+                    @Override
+                    public void onFailure(String error) {
+                        Toast.makeText(OrderDetailActivity.this, error, Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     @Override

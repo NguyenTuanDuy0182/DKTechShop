@@ -25,7 +25,6 @@ public class MockRepository {
     private final List<CartItem> cartItems = new ArrayList<>();
     private final List<Order> orders = new ArrayList<>();
     private final List<Review> reviews = new ArrayList<>();
-    private final List<String> favorites = new ArrayList<>();
     private User currentUser;
 
     public interface OnDataChangeListener {
@@ -254,8 +253,6 @@ public class MockRepository {
                 addresses,
                 true
         );
-
-        favorites.add("prod_sony_xm5");
 
         // Sample Reviews
         reviews.add(new Review("rev_1", "prod_logi_gpx2", "Logitech G Pro X Superlight 2", "TG-2026-8841",
@@ -513,19 +510,6 @@ public class MockRepository {
         notifyListeners();
     }
 
-    public boolean isFavorite(String productId) {
-        return favorites.contains(productId);
-    }
-
-    public void toggleFavorite(String productId) {
-        if (favorites.contains(productId)) {
-            favorites.remove(productId);
-        } else {
-            favorites.add(productId);
-        }
-        notifyListeners();
-    }
-
     public List<Review> getReviews(String productId) {
         List<Review> result = new ArrayList<>();
         if (productId == null || productId.trim().isEmpty()) return result;
@@ -588,7 +572,7 @@ public class MockRepository {
     }
 
     public static String formatVND(long amount) {
-        return NumberFormat.getNumberInstance(Locale.GERMANY).format(amount) + "₫";
+        return com.ecommerce.dktechshop.utils.CurrencyUtils.formatVND(amount);
     }
 
     public void addListener(OnDataChangeListener listener) {

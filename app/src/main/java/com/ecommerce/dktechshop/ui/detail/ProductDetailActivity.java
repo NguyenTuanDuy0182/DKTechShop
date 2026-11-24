@@ -269,7 +269,7 @@ public class ProductDetailActivity extends AppCompatActivity {
 
         if (btnWriteReview != null) {
             btnWriteReview.setOnClickListener(v -> {
-                ProductRepository.getInstance().checkUserPurchasedProduct(product.getId(), new ProductRepository.Callback<Boolean>() {
+                shopViewModel.checkPurchaseEligibility(product.getId(), new ProductRepository.Callback<Boolean>() {
                     @Override
                     public void onSuccess(Boolean purchased) {
                         if (Boolean.TRUE.equals(purchased)) {

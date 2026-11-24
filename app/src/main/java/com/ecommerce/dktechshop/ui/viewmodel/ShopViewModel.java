@@ -19,7 +19,6 @@ public class ShopViewModel extends ViewModel {
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
     private final MutableLiveData<Product> selectedProduct = new MutableLiveData<>();
-    private final MutableLiveData<Boolean> isFavorite = new MutableLiveData<>(false);
     private final MutableLiveData<List<Review>> reviews = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<Boolean> isEligibleToReview = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> reviewSubmitted = new MutableLiveData<>(false);
@@ -54,15 +53,8 @@ public class ShopViewModel extends ViewModel {
         return selectedProduct;
     }
 
-    public LiveData<Boolean> getIsFavorite() {
-        return isFavorite;
-    }
-
     public void setSelectedProduct(Product product) {
         this.selectedProduct.setValue(product);
-        if (product != null && product.getId() != null) {
-            checkFavorite(product.getId());
-        }
     }
 
     public void loadProductById(String productId) {
@@ -72,39 +64,12 @@ public class ShopViewModel extends ViewModel {
             public void onSuccess(Product result) {
                 selectedProduct.setValue(result);
                 isLoading.setValue(false);
-                checkFavorite(result.getId());
             }
 
             @Override
             public void onError(Exception e) {
                 errorMessage.setValue(e.getMessage());
                 isLoading.setValue(false);
-            }
-        });
-    }
-
-    public void checkFavorite(String productId) {
-        repository.isFavorite(productId, new ProductRepository.Callback<Boolean>() {
-            @Override
-            public void onSuccess(Boolean result) {
-                isFavorite.setValue(result);
-            }
-
-            @Override
-            public void onError(Exception e) {}
-        });
-    }
-
-    public void toggleFavorite(String productId) {
-        repository.toggleFavorite(productId, new ProductRepository.Callback<Boolean>() {
-            @Override
-            public void onSuccess(Boolean result) {
-                isFavorite.setValue(result);
-            }
-
-            @Override
-            public void onError(Exception e) {
-                errorMessage.setValue(e.getMessage());
             }
         });
     }
@@ -189,7 +154,7 @@ public class ShopViewModel extends ViewModel {
     }
 
     public void checkPurchaseEligibility(String productId) {
-        repository.checkUserPurchasedProduct(productId, new ProductRepository.Callback<Boolean>() {
+        checkPurchaseEligibility(productId, new ProductRepository.Callback<Boolean>() {
             @Override
             public void onSuccess(Boolean result) {
                 isEligibleToReview.setValue(result);
@@ -200,6 +165,10 @@ public class ShopViewModel extends ViewModel {
                 isEligibleToReview.setValue(false);
             }
         });
+    }
+
+    public void checkPurchaseEligibility(String productId, ProductRepository.Callback<Boolean> callback) {
+        repository.checkUserPurchasedProduct(productId, callback);
     }
 
     public void submitReview(Review review, Order order, Runnable onSuccess, Runnable onError) {

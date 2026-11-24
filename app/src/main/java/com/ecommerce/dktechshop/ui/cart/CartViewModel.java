@@ -10,6 +10,7 @@ import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.OrderItem;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.repository.CartRepository;
+import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.ecommerce.dktechshop.data.repository.OrderRepository;
 import com.google.firebase.firestore.ListenerRegistration;
 
@@ -31,10 +32,8 @@ public class CartViewModel extends ViewModel {
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
     private final MutableLiveData<String> successMessage = new MutableLiveData<>();
     private final MutableLiveData<Order> checkoutSuccessOrder = new MutableLiveData<>();
-    private final MutableLiveData<List<Order>> orders = new MutableLiveData<>(new ArrayList<>());
 
     private ListenerRegistration cartListenerRegistration;
-    private ListenerRegistration orderListenerRegistration;
 
     public CartViewModel() {
         this(CartRepository.getInstance(), OrderRepository.getInstance());
@@ -44,28 +43,6 @@ public class CartViewModel extends ViewModel {
         this.cartRepository = cartRepository;
         this.orderRepository = orderRepository;
         startListeningCart();
-        startListeningOrders();
-    }
-
-    public LiveData<List<Order>> getOrders() {
-        return orders;
-    }
-
-    public void startListeningOrders() {
-        if (orderListenerRegistration != null) {
-            orderListenerRegistration.remove();
-        }
-        orderListenerRegistration = orderRepository.listenUserOrders(new OrderRepository.OrderListCallback() {
-            @Override
-            public void onSuccess(List<Order> list) {
-                orders.setValue(list != null ? list : new ArrayList<>());
-            }
-
-            @Override
-            public void onFailure(String error) {
-                errorMessage.setValue(error);
-            }
-        });
     }
 
     public LiveData<List<CartItem>> getCartItems() {
@@ -297,16 +274,44 @@ public class CartViewModel extends ViewModel {
         });
     }
 
+    /**
+     * Thêm tất cả sản phẩm của một đơn hàng cũ vào lại giỏ hàng (Mua lại)
+     */
+    public void reorder(Order order, CartRepository.ActionCallback callback) {
+        if (order == null || order.getItems() == null || order.getItems().isEmpty()) {
+            if (callback != null) callback.onFailure("Không có sản phẩm để mua lại");
+            return;
+        }
+
+        for (OrderItem oi : order.getItems()) {
+            Product p = MockRepository.getInstance().getProductById(oi.getProductId());
+            String thumb = (p != null) ? p.getThumbnailUrl() : "";
+            String category = (p != null) ? p.getCategory() : "";
+            String itemId = CartRepository.generateItemId(oi.getProductId(), oi.getVariant());
+            CartItem ci = new CartItem(
+                    itemId,
+                    oi.getProductId(),
+                    oi.getProductName(),
+                    category,
+                    oi.getPrice(),
+                    oi.getVariant(),
+                    oi.getQuantity(),
+                    thumb
+            );
+            cartRepository.upsertCartItem(ci, null);
+            if (p != null) {
+                MockRepository.getInstance().addToCart(p, oi.getVariant(), oi.getQuantity());
+            }
+        }
+        if (callback != null) callback.onSuccess();
+    }
+
     @Override
     protected void onCleared() {
         super.onCleared();
         if (cartListenerRegistration != null) {
             cartListenerRegistration.remove();
             cartListenerRegistration = null;
-        }
-        if (orderListenerRegistration != null) {
-            orderListenerRegistration.remove();
-            orderListenerRegistration = null;
         }
     }
 }

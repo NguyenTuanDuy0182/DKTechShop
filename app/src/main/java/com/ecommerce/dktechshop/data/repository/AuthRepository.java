@@ -72,7 +72,6 @@ public class AuthRepository {
 
                         // Tạo hồ sơ người dùng lưu trên Firestore
                         User newUser = new User(uid, name, email, "", "", new ArrayList<>(), true);
-                        newUser.setTier("Thành viên Đồng");
 
                         mFirestore.collection("users").document(uid).set(newUser)
                                 .addOnSuccessListener(aVoid -> callback.onSuccess(newUser))
@@ -116,6 +115,34 @@ public class AuthRepository {
     }
 
     /**
+     * Lấy dữ liệu người dùng bất kỳ theo uid từ Firestore users/{uid}.
+     */
+    public void fetchUserById(String uid, AuthCallback callback) {
+        if (uid == null || uid.trim().isEmpty()) {
+            if (callback != null) callback.onFailure("Mã người dùng không hợp lệ");
+            return;
+        }
+
+        mFirestore.collection("users").document(uid).get()
+                .addOnSuccessListener(doc -> {
+                    if (doc != null && doc.exists()) {
+                        User user = doc.toObject(User.class);
+                        if (user != null) {
+                            if (user.getUid() == null || user.getUid().isEmpty()) {
+                                user.setUid(doc.getId());
+                            }
+                            if (callback != null) callback.onSuccess(user);
+                            return;
+                        }
+                    }
+                    if (callback != null) callback.onFailure("Không tìm thấy người dùng");
+                })
+                .addOnFailureListener(e -> {
+                    if (callback != null) callback.onFailure(e.getMessage());
+                });
+    }
+
+    /**
      * Lấy dữ liệu người dùng hiện tại từ Firestore users/{uid}.
      */
     public void fetchCurrentUser(AuthCallback callback) {
@@ -141,7 +168,6 @@ public class AuthRepository {
                         String name = fbUser.getDisplayName() != null ? fbUser.getDisplayName() : "Người dùng";
                         String email = fbUser.getEmail() != null ? fbUser.getEmail() : "";
                         user = new User(uid, name, email, "", "", new ArrayList<>(), true);
-                        user.setTier("Thành viên Đồng");
                         mFirestore.collection("users").document(uid).set(user);
                     }
                     user.setLoggedIn(true);

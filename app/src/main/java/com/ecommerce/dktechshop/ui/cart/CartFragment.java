@@ -141,50 +141,66 @@ public class CartFragment extends Fragment {
                 return;
             }
 
-            Address targetAddress = null;
-            List<Address> addresses = authViewModel.getAddresses().getValue();
-            if (addresses != null) {
-                for (Address a : addresses) {
-                    if (a.isDefault()) {
-                        targetAddress = a;
-                        break;
-                    }
-                }
-                if (targetAddress == null && !addresses.isEmpty()) {
-                    targetAddress = addresses.get(0);
-                }
-            }
-
-            if (targetAddress == null) {
-                targetAddress = new Address("", "Mặc định", MockRepository.getInstance().getDefaultAddressDetail(), true);
-            }
-
-            String recipientName = "";
-            String recipientPhone = "";
-            com.ecommerce.dktechshop.data.model.User u = authViewModel.getCurrentUser().getValue();
-            if (u != null) {
-                recipientName = u.getName();
-                recipientPhone = u.getPhone();
-            }
-            if (recipientName == null || recipientName.trim().isEmpty()) {
-                com.google.firebase.auth.FirebaseUser fbUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-                if (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty()) {
-                    recipientName = fbUser.getDisplayName();
-                } else {
-                    recipientName = MockRepository.getInstance().getCurrentUser().getName();
-                }
-            }
-            if (targetAddress.getPhone() != null && !targetAddress.getPhone().trim().isEmpty()) {
-                recipientPhone = targetAddress.getPhone().trim();
-            } else if (recipientPhone == null || recipientPhone.trim().isEmpty()) {
-                recipientPhone = MockRepository.getInstance().getCurrentUser().getPhone();
-            }
-
-            cartViewModel.checkout(targetAddress, selectedPayment, recipientName, recipientPhone);
+            ShippingInfo shipping = resolveShippingInfo();
+            cartViewModel.checkout(shipping.address, selectedPayment, shipping.name, shipping.phone);
         });
 
         observeViewModel();
         updateAddressUI();
+    }
+
+    private static class ShippingInfo {
+        final Address address;
+        final String name;
+        final String phone;
+
+        ShippingInfo(Address address, String name, String phone) {
+            this.address = address;
+            this.name = name;
+            this.phone = phone;
+        }
+    }
+
+    private ShippingInfo resolveShippingInfo() {
+        Address defaultAddress = null;
+        List<Address> addresses = authViewModel.getAddresses().getValue();
+        if (addresses != null) {
+            for (Address a : addresses) {
+                if (a.isDefault()) {
+                    defaultAddress = a;
+                    break;
+                }
+            }
+            if (defaultAddress == null && !addresses.isEmpty()) {
+                defaultAddress = addresses.get(0);
+            }
+        }
+        if (defaultAddress == null) {
+            defaultAddress = new Address("", "Mặc định", MockRepository.getInstance().getDefaultAddressDetail(), true);
+        }
+
+        String name = "";
+        String phone = "";
+        com.ecommerce.dktechshop.data.model.User u = authViewModel.getCurrentUser().getValue();
+        if (u != null) {
+            name = u.getName();
+            phone = u.getPhone();
+        }
+        if (name == null || name.trim().isEmpty()) {
+            com.google.firebase.auth.FirebaseUser fbUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+            if (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty()) {
+                name = fbUser.getDisplayName();
+            } else {
+                name = MockRepository.getInstance().getCurrentUser().getName();
+            }
+        }
+        if (defaultAddress.getPhone() != null && !defaultAddress.getPhone().trim().isEmpty()) {
+            phone = defaultAddress.getPhone().trim();
+        } else if (phone == null || phone.trim().isEmpty()) {
+            phone = MockRepository.getInstance().getCurrentUser().getPhone();
+        }
+
+        return new ShippingInfo(defaultAddress, name != null ? name : "", phone != null ? phone : "");
     }
 
     /**
@@ -293,41 +309,11 @@ public class CartFragment extends Fragment {
 
     private void updateAddressUI() {
         if (tvUserInfo != null && tvAddressDetail != null) {
-            String name = "";
-            String phone = "";
-            com.ecommerce.dktechshop.data.model.User u = authViewModel.getCurrentUser().getValue();
-            if (u != null) {
-                name = u.getName();
-                phone = u.getPhone();
-            }
-            if (name == null || name.trim().isEmpty()) {
-                com.google.firebase.auth.FirebaseUser fbUser = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
-                if (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty()) {
-                    name = fbUser.getDisplayName();
-                } else {
-                    name = MockRepository.getInstance().getCurrentUser().getName();
-                }
-            }
-            Address defaultAddress = null;
-            List<Address> addresses = authViewModel.getAddresses().getValue();
-            if (addresses != null) {
-                for (Address a : addresses) {
-                    if (a.isDefault()) {
-                        defaultAddress = a;
-                        break;
-                    }
-                }
-                if (defaultAddress == null && !addresses.isEmpty()) {
-                    defaultAddress = addresses.get(0);
-                }
-            }
-            if (defaultAddress != null && defaultAddress.getPhone() != null && !defaultAddress.getPhone().trim().isEmpty()) {
-                phone = defaultAddress.getPhone().trim();
-            } else if (phone == null || phone.trim().isEmpty()) {
-                phone = MockRepository.getInstance().getCurrentUser().getPhone();
-            }
-            tvUserInfo.setText(name + (!phone.isEmpty() ? " • " + phone : ""));
-            tvAddressDetail.setText(defaultAddress != null ? defaultAddress.getDetail() : MockRepository.getInstance().getDefaultAddressDetail());
+            ShippingInfo shipping = resolveShippingInfo();
+            tvUserInfo.setText(shipping.name + (!shipping.phone.isEmpty() ? " • " + shipping.phone : ""));
+            tvAddressDetail.setText(shipping.address.getDetail() != null && !shipping.address.getDetail().isEmpty()
+                    ? shipping.address.getDetail()
+                    : MockRepository.getInstance().getDefaultAddressDetail());
         }
     }
 

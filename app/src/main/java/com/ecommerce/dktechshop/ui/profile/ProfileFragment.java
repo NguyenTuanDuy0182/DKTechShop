@@ -37,7 +37,6 @@ public class ProfileFragment extends Fragment {
     private TextView tvName;
     private TextView tvEmail;
     private TextView tvPhone;
-    private TextView tvTier;
     private SwipeRefreshLayout swipeRefreshProfile;
 
     // Accordions
@@ -79,7 +78,6 @@ public class ProfileFragment extends Fragment {
         tvName = view.findViewById(R.id.tv_profile_name);
         tvEmail = view.findViewById(R.id.tv_profile_email);
         tvPhone = view.findViewById(R.id.tv_profile_phone);
-        tvTier = view.findViewById(R.id.tv_profile_tier);
         swipeRefreshProfile = view.findViewById(R.id.swipe_refresh_profile);
         if (swipeRefreshProfile != null) {
             swipeRefreshProfile.setColorSchemeResources(R.color.md_theme_light_primary);
@@ -199,9 +197,6 @@ public class ProfileFragment extends Fragment {
                     } else {
                         tvPhone.setText("Chưa cập nhật SĐT");
                     }
-                }
-                if (tvTier != null) {
-                    tvTier.setText(user.getTier() != null && !user.getTier().isEmpty() ? user.getTier() : "Thành viên Đồng");
                 }
                 etEditName.setText(user.getName());
                 etEditPhone.setText(user.getPhone());

@@ -206,20 +206,11 @@
 
             <TextView
                 android:id="@+id/tv_section_title"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:text="Sản phẩm nổi bật"
                 android:textColor="@color/md_theme_light_onSurface"
                 android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Xem thêm"
-                android:textColor="@color/md_theme_light_primary"
-                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 

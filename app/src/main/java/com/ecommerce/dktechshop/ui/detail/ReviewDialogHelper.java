@@ -147,9 +147,10 @@ public class ReviewDialogHelper {
 
                 @Override
                 public void onError(Exception e) {
-                    Toast.makeText(context, "Đã gửi đánh giá thành công!", Toast.LENGTH_SHORT).show();
-                    if (listener != null) listener.onReviewSubmitted(review);
-                    dialog.dismiss();
+                    btnSubmit.setEnabled(true);
+                    btnSubmit.setText("Gửi đánh giá");
+                    String err = (e != null && e.getMessage() != null) ? e.getMessage() : "Vui lòng thử lại";
+                    Toast.makeText(context, "Lỗi gửi đánh giá: " + err, Toast.LENGTH_SHORT).show();
                 }
             });
         });
