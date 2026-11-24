@@ -129,11 +129,11 @@
 
                         <ImageView
                             android:id="@+id/iv_detail_hero_icon"
-                            android:layout_width="84dp"
-                            android:layout_height="84dp"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_devices"
-                            app:tint="@color/md_theme_light_primary"
+                            android:padding="16dp"
+                            android:scaleType="fitCenter"
                             android:contentDescription="Hero Image" />
 
                         <TextView
@@ -166,30 +166,38 @@
                         android:textSize="12sp"
                         android:textStyle="bold" />
 
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_star"
-                        android:contentDescription="Star" />
-
-                    <TextView
-                        android:id="@+id/tv_detail_rating"
+                    <LinearLayout
+                        android:id="@+id/layout_detail_rating"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:text="5.0"
-                        android:textColor="#D97706"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                    <TextView
-                        android:id="@+id/tv_detail_reviews"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:text="(0 đánh giá)"
-                        android:textColor="@color/md_theme_light_onSurfaceVariant"
-                        android:textSize="12sp" />
+                        <ImageView
+                            android:layout_width="16dp"
+                            android:layout_height="16dp"
+                            android:src="@drawable/ic_star"
+                            android:contentDescription="Star" />
+
+                        <TextView
+                            android:id="@+id/tv_detail_rating"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:text="5.0"
+                            android:textColor="#D97706"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tv_detail_reviews"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="4dp"
+                            android:text="(0 đánh giá)"
+                            android:textColor="@color/md_theme_light_onSurfaceVariant"
+                            android:textSize="12sp" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- Product Name -->
@@ -264,7 +272,7 @@
                     app:singleSelection="true"
                     app:selectionRequired="true" />
 
-                <!-- Technical Specs Card -->
+                <!-- Product Details Card with Tabs -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -282,7 +290,7 @@
 
                         <LinearLayout
                             android:layout_width="match_parent"
-                            android:layout_height="40dp"
+                            android:layout_height="44dp"
                             android:paddingStart="14dp"
                             android:paddingEnd="14dp"
                             android:gravity="center_vertical"
@@ -290,27 +298,53 @@
                             android:orientation="horizontal">
 
                             <TextView
-                                android:layout_width="0dp"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="Thông số kỹ thuật"
+                                android:text="Chi tiết sản phẩm"
                                 android:textColor="@color/md_theme_light_onSurface"
-                                android:textSize="12sp"
+                                android:textSize="13sp"
                                 android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Chi tiết"
-                                android:textColor="@color/md_theme_light_onSurfaceVariant"
-                                android:textSize="10sp" />
                         </LinearLayout>
 
-                        <!-- Dynamic Specs rows container -->
+                        <com.google.android.material.tabs.TabLayout
+                            android:id="@+id/tab_layout_details"
+                            android:layout_width="match_parent"
+                            android:layout_height="40dp"
+                            android:background="@android:color/transparent"
+                            app:tabGravity="fill"
+                            app:tabMode="fixed"
+                            app:tabIndicatorColor="?attr/colorPrimary"
+                            app:tabSelectedTextColor="?attr/colorPrimary"
+                            app:tabTextColor="@color/md_theme_light_onSurfaceVariant"
+                            app:tabIndicatorHeight="2dp">
+
+                            <com.google.android.material.tabs.TabItem
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Thông số kỹ thuật" />
+
+                            <com.google.android.material.tabs.TabItem
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Bảo hành" />
+                        </com.google.android.material.tabs.TabLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/md_theme_light_outlineVariant" />
+
                         <LinearLayout
                             android:id="@+id/layout_specs_container"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+
+                        <LinearLayout
+                            android:id="@+id/layout_warranty_container"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:visibility="gone"
                             android:orientation="vertical" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>

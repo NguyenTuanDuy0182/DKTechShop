@@ -12,18 +12,23 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
+import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.data.repository.ProductRepository;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.tabs.TabLayout;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class ProductDetailActivity extends AppCompatActivity {
 
+    public static final String EXTRA_PRODUCT = "extra_product";
     public static final String EXTRA_PRODUCT_ID = "extra_product_id";
 
     private Product product;
@@ -35,14 +40,37 @@ public class ProductDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_product_detail);
 
-        String productId = getIntent().getStringExtra(EXTRA_PRODUCT_ID);
-        if (productId != null) {
-            product = MockRepository.getInstance().getProductById(productId);
+        Product extraProduct;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            extraProduct = getIntent().getSerializableExtra(EXTRA_PRODUCT, Product.class);
         } else {
-            product = MockRepository.getInstance().getProducts().get(0);
+            extraProduct = (Product) getIntent().getSerializableExtra(EXTRA_PRODUCT);
         }
+        if (extraProduct != null) {
+            product = extraProduct;
+            setupViews();
+        } else {
+            String productId = getIntent().getStringExtra(EXTRA_PRODUCT_ID);
+            if (productId != null) {
+                ProductRepository.getInstance().getProductById(productId, new ProductRepository.Callback<Product>() {
+                    @Override
+                    public void onSuccess(Product result) {
+                        product = result;
+                        setupViews();
+                    }
 
-        setupViews();
+                    @Override
+                    public void onError(Exception e) {
+                        product = MockRepository.getInstance().getProductById(productId);
+                        if (product == null) product = MockRepository.getInstance().getProducts().get(0);
+                        setupViews();
+                    }
+                });
+            } else {
+                product = MockRepository.getInstance().getProducts().get(0);
+                setupViews();
+            }
+        }
     }
 
     private void setupViews() {
@@ -64,7 +92,9 @@ public class ProductDetailActivity extends AppCompatActivity {
         TextView tvDiscount = findViewById(R.id.tv_detail_discount);
 
         ChipGroup chipGroupVariants = findViewById(R.id.chip_group_detail_variants);
+        TabLayout tabLayoutDetails = findViewById(R.id.tab_layout_details);
         LinearLayout layoutSpecsContainer = findViewById(R.id.layout_specs_container);
+        LinearLayout layoutWarrantyContainer = findViewById(R.id.layout_warranty_container);
 
         MaterialButton btnAddToCart = findViewById(R.id.btn_detail_add_to_cart);
         MaterialButton btnBuyNow = findViewById(R.id.btn_detail_buy_now);
@@ -73,20 +103,42 @@ public class ProductDetailActivity extends AppCompatActivity {
         tvBrandBadge.setText(product.getBrand());
         tvName.setText(product.getName());
         tvCategory.setText(product.getCategoryLabel());
-        tvRating.setText(String.valueOf(product.getRating()));
-        tvReviews.setText("(" + product.getReviewCount() + " đánh giá)");
+        View layoutRating = findViewById(R.id.layout_detail_rating);
+        if (layoutRating != null) {
+            if (product.getReviewCount() > 0) {
+                layoutRating.setVisibility(View.VISIBLE);
+                tvRating.setText(String.valueOf(product.getRating()));
+                tvReviews.setText("(" + product.getReviewCount() + " đánh giá)");
+            } else {
+                layoutRating.setVisibility(View.GONE);
+            }
+        }
         tvStock.setText("Còn sẵn " + product.getStock() + " thiết bị tại kho");
         tvPrice.setText(MockRepository.formatVND(product.getPrice()));
-        tvOriginalPrice.setText(MockRepository.formatVND(product.getOriginalPrice()));
-        tvOriginalPrice.setPaintFlags(tvOriginalPrice.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
-        tvDiscount.setText("Tiết kiệm " + product.getDiscountPercent() + "%");
-
-        if ("mouse".equalsIgnoreCase(product.getCategory())) {
-            ivHeroIcon.setImageResource(R.drawable.ic_mouse);
-        } else if ("headphone".equalsIgnoreCase(product.getCategory())) {
-            ivHeroIcon.setImageResource(R.drawable.ic_headset);
+        if (product.getOriginalPrice() > product.getPrice() && product.getDiscountPercent() > 0) {
+            tvOriginalPrice.setVisibility(View.VISIBLE);
+            tvDiscount.setVisibility(View.VISIBLE);
+            tvOriginalPrice.setText(MockRepository.formatVND(product.getOriginalPrice()));
+            tvOriginalPrice.setPaintFlags(tvOriginalPrice.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
+            tvDiscount.setText("Tiết kiệm " + product.getDiscountPercent() + "%");
         } else {
-            ivHeroIcon.setImageResource(R.drawable.ic_devices);
+            tvOriginalPrice.setVisibility(View.GONE);
+            tvDiscount.setVisibility(View.GONE);
+        }
+
+        if (product.getThumbnailUrl() != null && !product.getThumbnailUrl().trim().isEmpty()) {
+            ivHeroIcon.setImageTintList(null);
+            ivHeroIcon.clearColorFilter();
+            Glide.with(this).load(product.getThumbnailUrl()).into(ivHeroIcon);
+        } else {
+            ivHeroIcon.setImageTintList(ContextCompat.getColorStateList(this, R.color.md_theme_light_primary));
+            if ("mouse".equalsIgnoreCase(product.getCategory())) {
+                ivHeroIcon.setImageResource(R.drawable.ic_mouse);
+            } else if ("headphone".equalsIgnoreCase(product.getCategory())) {
+                ivHeroIcon.setImageResource(R.drawable.ic_headset);
+            } else {
+                ivHeroIcon.setImageResource(R.drawable.ic_devices);
+            }
         }
 
         updateFavoriteIcon();
@@ -121,37 +173,31 @@ public class ProductDetailActivity extends AppCompatActivity {
             chipGroupVariants.addView(chip);
         }
 
-        // Specs table rows
-        layoutSpecsContainer.removeAllViews();
-        int idx = 0;
-        for (Map.Entry<String, String> entry : product.getSpecs().entrySet()) {
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setPadding(32, 20, 32, 20);
-            if (idx % 2 == 0) {
-                row.setBackgroundColor(ContextCompat.getColor(this, R.color.md_theme_light_surfaceContainerLowest));
-            } else {
-                row.setBackgroundColor(ContextCompat.getColor(this, R.color.md_theme_light_surfaceContainerLow));
+        // Product details tabs: Specs & Warranty
+        populateTable(layoutSpecsContainer, product.getSpecs());
+
+        Map<String, String> warrantyInfo = new LinkedHashMap<>();
+        warrantyInfo.put("Thời hạn bảo hành", "24 tháng chính hãng");
+        warrantyInfo.put("Chính sách đổi mới", "1 đổi 1 trong 30 ngày (lỗi NSX)");
+        warrantyInfo.put("Hình thức bảo hành", "Bảo hành điện tử theo Serial Number");
+        warrantyInfo.put("Điều kiện bảo hành", "Còn nguyên tem, không rơi vỡ, vào nước");
+        warrantyInfo.put("Địa điểm bảo hành", "Trung tâm DKTechShop & TTBH ủy quyền");
+        populateTable(layoutWarrantyContainer, warrantyInfo);
+
+        tabLayoutDetails.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                boolean isSpecs = tab.getPosition() == 0;
+                layoutSpecsContainer.setVisibility(isSpecs ? View.VISIBLE : View.GONE);
+                layoutWarrantyContainer.setVisibility(isSpecs ? View.GONE : View.VISIBLE);
             }
 
-            TextView tvKey = new TextView(this);
-            tvKey.setText(entry.getKey());
-            tvKey.setTextSize(12);
-            tvKey.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_onSurfaceVariant));
-            LinearLayout.LayoutParams lpKey = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            tvKey.setLayoutParams(lpKey);
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {}
 
-            TextView tvVal = new TextView(this);
-            tvVal.setText(entry.getValue());
-            tvVal.setTextSize(12);
-            tvVal.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_onSurface));
-            tvVal.setTypeface(null, android.graphics.Typeface.BOLD);
-
-            row.addView(tvKey);
-            row.addView(tvVal);
-            layoutSpecsContainer.addView(row);
-            idx++;
-        }
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {}
+        });
 
         btnAddToCart.setOnClickListener(v -> openVariantSheet(false));
         btnBuyNow.setOnClickListener(v -> openVariantSheet(true));
@@ -194,5 +240,35 @@ public class ProductDetailActivity extends AppCompatActivity {
                     }
                 });
         sheet.show(getSupportFragmentManager(), "variant_sheet");
+    }
+
+    private void populateTable(LinearLayout container, Map<String, String> data) {
+        container.removeAllViews();
+        if (data == null) return;
+        int idx = 0;
+        for (Map.Entry<String, String> entry : data.entrySet()) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setPadding(32, 20, 32, 20);
+            row.setBackgroundColor(ContextCompat.getColor(this,
+                    idx % 2 == 0 ? R.color.md_theme_light_surfaceContainerLowest : R.color.md_theme_light_surfaceContainerLow));
+
+            TextView tvKey = new TextView(this);
+            tvKey.setText(entry.getKey());
+            tvKey.setTextSize(12);
+            tvKey.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_onSurfaceVariant));
+            tvKey.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+            TextView tvVal = new TextView(this);
+            tvVal.setText(entry.getValue());
+            tvVal.setTextSize(12);
+            tvVal.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_onSurface));
+            tvVal.setTypeface(null, android.graphics.Typeface.BOLD);
+
+            row.addView(tvKey);
+            row.addView(tvVal);
+            container.addView(row);
+            idx++;
+        }
     }
 }

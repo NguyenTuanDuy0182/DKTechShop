@@ -9,7 +9,9 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
+import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
@@ -65,12 +67,19 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
             tvPrice.setText(MockRepository.formatVND(product.getPrice()));
             tvStock.setText("Kho: " + product.getStock() + " sản phẩm");
 
-            if ("mouse".equalsIgnoreCase(product.getCategory())) {
-                ivIcon.setImageResource(R.drawable.ic_mouse);
-            } else if ("headphone".equalsIgnoreCase(product.getCategory())) {
-                ivIcon.setImageResource(R.drawable.ic_headset);
+            if (product.getThumbnailUrl() != null && !product.getThumbnailUrl().trim().isEmpty()) {
+                ivIcon.setImageTintList(null);
+                ivIcon.clearColorFilter();
+                Glide.with(this).load(product.getThumbnailUrl()).into(ivIcon);
             } else {
-                ivIcon.setImageResource(R.drawable.ic_devices);
+                ivIcon.setImageTintList(ContextCompat.getColorStateList(requireContext(), R.color.md_theme_light_primary));
+                if ("mouse".equalsIgnoreCase(product.getCategory())) {
+                    ivIcon.setImageResource(R.drawable.ic_mouse);
+                } else if ("headphone".equalsIgnoreCase(product.getCategory())) {
+                    ivIcon.setImageResource(R.drawable.ic_headset);
+                } else {
+                    ivIcon.setImageResource(R.drawable.ic_devices);
+                }
             }
 
             // Populate variant chips

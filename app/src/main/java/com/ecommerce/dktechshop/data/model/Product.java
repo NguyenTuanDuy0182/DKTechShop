@@ -19,6 +19,7 @@ public class Product implements Serializable {
     private int reviewCount = 0;
     private int stock = 0;
     private String thumbnailUrl = "";
+    private String description = "";
     private Map<String, String> specs = new HashMap<>();
     private List<String> variants = new ArrayList<>();
 
@@ -67,6 +68,8 @@ public class Product implements Serializable {
     public void setStock(int stock) { this.stock = stock; }
     public String getThumbnailUrl() { return thumbnailUrl; }
     public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
     public Map<String, String> getSpecs() { return specs; }
     public void setSpecs(Map<String, String> specs) { this.specs = specs; }
     public List<String> getVariants() { return variants; }

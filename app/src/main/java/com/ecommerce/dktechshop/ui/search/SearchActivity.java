@@ -54,6 +54,7 @@ public class SearchActivity extends AppCompatActivity {
 
         adapter = new ProductSearchAdapter(product -> {
             Intent intent = new Intent(this, ProductDetailActivity.class);
+            intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT, product);
             intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT_ID, product.getId());
             startActivity(intent);
         });

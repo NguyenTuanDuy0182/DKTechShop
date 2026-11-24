@@ -8,6 +8,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
@@ -51,19 +52,25 @@ public class ProductGridAdapter extends RecyclerView.Adapter<ProductGridAdapter.
         holder.tvBrand.setText(p.getBrand());
         holder.tvName.setText(p.getName());
         holder.tvPrice.setText(MockRepository.formatVND(p.getPrice()));
-        holder.tvOriginalPrice.setText(MockRepository.formatVND(p.getOriginalPrice()));
-        holder.tvOriginalPrice.setPaintFlags(holder.tvOriginalPrice.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
-        holder.tvDiscountTag.setText("-" + p.getDiscountPercent() + "%");
+        if (p.getOriginalPrice() > p.getPrice() && p.getDiscountPercent() > 0) {
+            holder.tvOriginalPrice.setVisibility(View.VISIBLE);
+            holder.tvDiscountTag.setVisibility(View.VISIBLE);
+            holder.tvOriginalPrice.setText(MockRepository.formatVND(p.getOriginalPrice()));
+            holder.tvOriginalPrice.setPaintFlags(holder.tvOriginalPrice.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
+            holder.tvDiscountTag.setText("-" + p.getDiscountPercent() + "%");
+        } else {
+            holder.tvOriginalPrice.setVisibility(View.GONE);
+            holder.tvDiscountTag.setVisibility(View.GONE);
+        }
 
         if (p.getThumbnailUrl() != null && !p.getThumbnailUrl().trim().isEmpty()) {
+            holder.ivIcon.setImageTintList(null);
             holder.ivIcon.clearColorFilter();
             Glide.with(holder.itemView.getContext())
                     .load(p.getThumbnailUrl())
-                    .placeholder(R.drawable.ic_devices)
-                    .error(R.drawable.ic_devices)
                     .into(holder.ivIcon);
         } else {
-            holder.ivIcon.setColorFilter(holder.itemView.getContext().getColor(R.color.md_theme_light_primary));
+            holder.ivIcon.setImageTintList(ContextCompat.getColorStateList(holder.itemView.getContext(), R.color.md_theme_light_primary));
             if ("mouse".equalsIgnoreCase(p.getCategory())) {
                 holder.ivIcon.setImageResource(R.drawable.ic_mouse);
             } else if ("headphone".equalsIgnoreCase(p.getCategory())) {

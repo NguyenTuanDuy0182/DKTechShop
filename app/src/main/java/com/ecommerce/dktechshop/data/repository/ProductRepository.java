@@ -72,4 +72,22 @@ public class ProductRepository {
                 })
                 .addOnFailureListener(callback::onError);
     }
+
+    public void getProductById(String productId, Callback<Product> callback) {
+        db.collection("products").document(productId).get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        Product p = doc.toObject(Product.class);
+                        if (p != null) {
+                            if (p.getId() == null || p.getId().isEmpty()) {
+                                p.setId(doc.getId());
+                            }
+                            callback.onSuccess(p);
+                            return;
+                        }
+                    }
+                    callback.onError(new Exception("Product not found"));
+                })
+                .addOnFailureListener(callback::onError);
+    }
 }

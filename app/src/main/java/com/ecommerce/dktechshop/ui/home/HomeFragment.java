@@ -77,6 +77,7 @@ public class HomeFragment extends Fragment {
             @Override
             public void onProductClick(Product product) {
                 Intent intent = new Intent(requireContext(), ProductDetailActivity.class);
+                intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT, product);
                 intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT_ID, product.getId());
                 startActivity(intent);
             }

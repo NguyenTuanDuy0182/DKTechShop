@@ -39,11 +39,11 @@
 
             <ImageView
                 android:id="@+id/iv_sheet_icon"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
                 android:layout_gravity="center"
-                android:src="@drawable/ic_devices"
-                app:tint="@color/md_theme_light_primary"
+                android:padding="6dp"
+                android:scaleType="fitCenter"
                 android:contentDescription="Thumbnail" />
         </com.google.android.material.card.MaterialCardView>
 

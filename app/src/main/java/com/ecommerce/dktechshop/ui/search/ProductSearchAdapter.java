@@ -7,8 +7,10 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
@@ -49,12 +51,21 @@ public class ProductSearchAdapter extends RecyclerView.Adapter<ProductSearchAdap
         holder.tvPrice.setText(MockRepository.formatVND(p.getPrice()));
         holder.tvRating.setText(String.valueOf(p.getRating()));
 
-        if ("mouse".equalsIgnoreCase(p.getCategory())) {
-            holder.ivIcon.setImageResource(R.drawable.ic_mouse);
-        } else if ("headphone".equalsIgnoreCase(p.getCategory())) {
-            holder.ivIcon.setImageResource(R.drawable.ic_headset);
+        if (p.getThumbnailUrl() != null && !p.getThumbnailUrl().trim().isEmpty()) {
+            holder.ivIcon.setImageTintList(null);
+            holder.ivIcon.clearColorFilter();
+            Glide.with(holder.itemView.getContext())
+                    .load(p.getThumbnailUrl())
+                    .into(holder.ivIcon);
         } else {
-            holder.ivIcon.setImageResource(R.drawable.ic_devices);
+            holder.ivIcon.setImageTintList(ContextCompat.getColorStateList(holder.itemView.getContext(), R.color.md_theme_light_primary));
+            if ("mouse".equalsIgnoreCase(p.getCategory())) {
+                holder.ivIcon.setImageResource(R.drawable.ic_mouse);
+            } else if ("headphone".equalsIgnoreCase(p.getCategory())) {
+                holder.ivIcon.setImageResource(R.drawable.ic_headset);
+            } else {
+                holder.ivIcon.setImageResource(R.drawable.ic_devices);
+            }
         }
 
         holder.itemView.setOnClickListener(v -> {
