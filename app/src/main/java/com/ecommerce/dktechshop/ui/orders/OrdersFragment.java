@@ -1,14 +1,18 @@
 package com.ecommerce.dktechshop.ui.orders;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -17,22 +21,22 @@ import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.CartItem;
 import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.OrderItem;
+import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.repository.CartRepository;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
-import com.ecommerce.dktechshop.data.repository.OrderRepository;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.firebase.firestore.ListenerRegistration;
 
-import java.util.ArrayList;
 import java.util.List;
 
-public class OrdersFragment extends Fragment implements MockRepository.OnDataChangeListener {
+public class OrdersFragment extends Fragment {
 
+    private OrderViewModel orderViewModel;
     private OrderAdapter adapter;
-    private String currentStatusFilter = "all";
-    private ListenerRegistration orderListenerRegistration;
-    private List<Order> firestoreOrders = new ArrayList<>();
+    private RecyclerView rvOrders;
+    private LinearLayout layoutEmptyOrders;
+    private ProgressBar progressOrders;
 
     @Nullable
     @Override
@@ -45,27 +49,31 @@ public class OrdersFragment extends Fragment implements MockRepository.OnDataCha
         super.onViewCreated(view, savedInstanceState);
 
         ChipGroup chipGroup = view.findViewById(R.id.chip_group_order_status);
-        RecyclerView rvOrders = view.findViewById(R.id.rv_orders);
+        rvOrders = view.findViewById(R.id.rv_orders);
+        layoutEmptyOrders = view.findViewById(R.id.layout_empty_orders);
+        progressOrders = view.findViewById(R.id.progress_orders);
+        MaterialButton btnShopNow = view.findViewById(R.id.btn_shop_now);
+
+        orderViewModel = new ViewModelProvider(this).get(OrderViewModel.class);
 
         adapter = new OrderAdapter(new OrderAdapter.OnOrderActionListener() {
+            @Override
+            public void onOrderClick(Order order) {
+                // Mở màn hình Chi tiết đơn hàng (OrderDetailActivity)
+                Intent intent = new Intent(requireContext(), OrderDetailActivity.class);
+                intent.putExtra(OrderDetailActivity.EXTRA_ORDER, order);
+                intent.putExtra(OrderDetailActivity.EXTRA_ORDER_ID, order.getOrderId());
+                startActivity(intent);
+            }
+
             @Override
             public void onCancelOrder(Order order) {
                 new MaterialAlertDialogBuilder(requireContext())
                         .setTitle("Hủy đơn hàng")
                         .setMessage("Bạn có chắc chắn muốn hủy đơn hàng #" + order.getOrderId() + " không?")
                         .setPositiveButton("Hủy đơn", (dialog, which) -> {
-                            OrderRepository.getInstance().updateOrderStatus(order.getOrderId(), "Đã hủy", new OrderRepository.ActionCallback() {
-                                @Override
-                                public void onSuccess() {
-                                    Toast.makeText(requireContext(), "Đã hủy đơn hàng #" + order.getOrderId(), Toast.LENGTH_SHORT).show();
-                                }
-
-                                @Override
-                                public void onFailure(String error) {
-                                    MockRepository.getInstance().updateOrderStatus(order.getOrderId(), "Đã hủy");
-                                    Toast.makeText(requireContext(), "Đã hủy đơn hàng #" + order.getOrderId(), Toast.LENGTH_SHORT).show();
-                                }
-                            });
+                            orderViewModel.updateOrderStatus(order.getOrderId(), "Đã hủy");
+                            Toast.makeText(requireContext(), "Đã yêu cầu hủy đơn hàng #" + order.getOrderId(), Toast.LENGTH_SHORT).show();
                         })
                         .setNegativeButton("Đóng", null)
                         .show();
@@ -77,18 +85,8 @@ public class OrdersFragment extends Fragment implements MockRepository.OnDataCha
                         .setTitle("Xác nhận đã nhận hàng")
                         .setMessage("Bạn xác nhận đã nhận đầy đủ kiện hàng cho đơn #" + order.getOrderId() + "?")
                         .setPositiveButton("Đã nhận hàng", (dialog, which) -> {
-                            OrderRepository.getInstance().updateOrderStatus(order.getOrderId(), "Hoàn thành", new OrderRepository.ActionCallback() {
-                                @Override
-                                public void onSuccess() {
-                                    Toast.makeText(requireContext(), "Cảm ơn bạn! Đơn hàng đã hoàn thành.", Toast.LENGTH_SHORT).show();
-                                }
-
-                                @Override
-                                public void onFailure(String error) {
-                                    MockRepository.getInstance().updateOrderStatus(order.getOrderId(), "Hoàn thành");
-                                    Toast.makeText(requireContext(), "Cảm ơn bạn! Đơn hàng đã hoàn thành.", Toast.LENGTH_SHORT).show();
-                                }
-                            });
+                            orderViewModel.updateOrderStatus(order.getOrderId(), "Đã giao");
+                            Toast.makeText(requireContext(), "Cảm ơn bạn! Đơn hàng đã hoàn thành.", Toast.LENGTH_SHORT).show();
                         })
                         .setNegativeButton("Chưa nhận", null)
                         .show();
@@ -98,7 +96,7 @@ public class OrdersFragment extends Fragment implements MockRepository.OnDataCha
             public void onReorder(Order order) {
                 if (order.getItems() != null && !order.getItems().isEmpty()) {
                     for (OrderItem oi : order.getItems()) {
-                        com.ecommerce.dktechshop.data.model.Product p = MockRepository.getInstance().getProductById(oi.getProductId());
+                        Product p = MockRepository.getInstance().getProductById(oi.getProductId());
                         String thumb = (p != null) ? p.getThumbnailUrl() : "";
                         String category = (p != null) ? p.getCategory() : "";
                         String itemId = CartRepository.generateItemId(oi.getProductId(), oi.getVariant());
@@ -117,7 +115,7 @@ public class OrdersFragment extends Fragment implements MockRepository.OnDataCha
                             MockRepository.getInstance().addToCart(p, oi.getVariant(), oi.getQuantity());
                         }
                     }
-                    Toast.makeText(requireContext(), "Đã thêm sản phẩm vào giỏ hàng!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), "Đã thêm các sản phẩm vào giỏ hàng!", Toast.LENGTH_SHORT).show();
                     if (getActivity() instanceof MainActivity) {
                         ((MainActivity) getActivity()).navigateToTab(R.id.nav_cart);
                     }
@@ -132,83 +130,56 @@ public class OrdersFragment extends Fragment implements MockRepository.OnDataCha
         rvOrders.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvOrders.setAdapter(adapter);
 
+        // Nút khám phá khi danh sách trống
+        if (btnShopNow != null) {
+            btnShopNow.setOnClickListener(v -> {
+                if (getActivity() instanceof MainActivity) {
+                    ((MainActivity) getActivity()).navigateToTab(R.id.nav_home);
+                }
+            });
+        }
+
+        // Quan sát dữ liệu đơn hàng thật từ Firestore qua OrderViewModel
+        orderViewModel.getFilteredOrders().observe(getViewLifecycleOwner(), orders -> {
+            adapter.setOrders(orders);
+            boolean isEmpty = (orders == null || orders.isEmpty());
+            rvOrders.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+            layoutEmptyOrders.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        });
+
+        orderViewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
+            if (progressOrders != null) {
+                progressOrders.setVisibility(isLoading ? View.VISIBLE : View.GONE);
+            }
+        });
+
+        orderViewModel.getActionSuccess().observe(getViewLifecycleOwner(), msg -> {
+            if (msg != null && !msg.isEmpty()) {
+                Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Xử lý bộ lọc trạng thái (Chips)
         chipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
             if (checkedIds.contains(R.id.chip_order_processing)) {
-                currentStatusFilter = "Đang xử lý";
+                orderViewModel.setStatusFilter("Đang xử lý");
             } else if (checkedIds.contains(R.id.chip_order_delivering)) {
-                currentStatusFilter = "Đang giao";
+                orderViewModel.setStatusFilter("Đang giao");
             } else if (checkedIds.contains(R.id.chip_order_completed)) {
-                currentStatusFilter = "Hoàn thành";
+                orderViewModel.setStatusFilter("Đã giao");
             } else if (checkedIds.contains(R.id.chip_order_cancelled)) {
-                currentStatusFilter = "Đã hủy";
+                orderViewModel.setStatusFilter("Đã hủy");
             } else {
-                currentStatusFilter = "all";
-            }
-            updateOrdersList();
-        });
-
-        // Lắng nghe đơn hàng Firestore thời gian thực
-        orderListenerRegistration = OrderRepository.getInstance().listenOrders(new OrderRepository.OrderListCallback() {
-            @Override
-            public void onSuccess(List<Order> orders) {
-                if (orders != null && !orders.isEmpty()) {
-                    firestoreOrders = orders;
-                    updateOrdersList();
-                }
-            }
-
-            @Override
-            public void onFailure(String error) {
-                // Sử dụng MockRepository làm fallback
+                orderViewModel.setStatusFilter("all");
             }
         });
-
-        updateOrdersList();
-        MockRepository.getInstance().addListener(this);
-    }
-
-    private void updateOrdersList() {
-        List<Order> source = (!firestoreOrders.isEmpty())
-                ? firestoreOrders
-                : MockRepository.getInstance().getOrders(currentStatusFilter);
-
-        if (!firestoreOrders.isEmpty()) {
-            if ("all".equalsIgnoreCase(currentStatusFilter)) {
-                adapter.setOrders(source);
-            } else {
-                List<Order> filtered = new ArrayList<>();
-                for (Order o : source) {
-                    if (currentStatusFilter.equalsIgnoreCase(o.getStatus())) {
-                        filtered.add(o);
-                    }
-                }
-                adapter.setOrders(filtered);
-            }
-        } else {
-            adapter.setOrders(source);
-        }
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        updateOrdersList();
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        if (orderListenerRegistration != null) {
-            orderListenerRegistration.remove();
-            orderListenerRegistration = null;
-        }
-        MockRepository.getInstance().removeListener(this);
-    }
-
-    @Override
-    public void onDataChanged() {
-        if (isAdded()) {
-            updateOrdersList();
+        if (orderViewModel != null) {
+            orderViewModel.startListeningOrders();
         }
     }
 }
