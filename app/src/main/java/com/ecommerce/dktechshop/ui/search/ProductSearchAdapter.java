@@ -13,7 +13,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.utils.CurrencyUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +48,7 @@ public class ProductSearchAdapter extends RecyclerView.Adapter<ProductSearchAdap
         Product p = productList.get(position);
         holder.tvBrand.setText(p.getBrand() + " • " + p.getCategoryLabel());
         holder.tvName.setText(p.getName());
-        holder.tvPrice.setText(MockRepository.formatVND(p.getPrice()));
+        holder.tvPrice.setText(CurrencyUtils.formatVND(p.getPrice()));
         holder.tvRating.setText(String.valueOf(p.getRating()));
 
         if (p.getThumbnailUrl() != null && !p.getThumbnailUrl().trim().isEmpty()) {

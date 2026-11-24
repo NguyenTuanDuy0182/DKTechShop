@@ -9,10 +9,15 @@ import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.model.Review;
 import com.ecommerce.dktechshop.data.repository.ProductRepository;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Pattern;
 
 public class ShopViewModel extends ViewModel {
+    private static final Pattern DIACRITICS = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
     private final ProductRepository repository;
     private final MutableLiveData<List<Product>> products = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<String> selectedCategory = new MutableLiveData<>("all");
@@ -110,21 +115,67 @@ public class ShopViewModel extends ViewModel {
         });
     }
 
+    public void setMasterProducts(List<Product> products) {
+        this.masterProducts = products != null ? products : new ArrayList<>();
+    }
+
     public void searchProducts(String query) {
         if (query == null || query.trim().isEmpty()) {
             products.setValue(new ArrayList<>(masterProducts));
             return;
         }
-        String q = query.toLowerCase().trim();
         List<Product> filtered = new ArrayList<>();
         for (Product p : masterProducts) {
-            boolean matchName = p.getName() != null && p.getName().toLowerCase().contains(q);
-            boolean matchBrand = p.getBrand() != null && p.getBrand().toLowerCase().contains(q);
-            if (matchName || matchBrand) {
+            if (matchesProduct(p, query)) {
                 filtered.add(p);
             }
         }
         products.setValue(filtered);
+    }
+
+    public static boolean matchesProduct(Product p, String query) {
+        if (p == null) return false;
+        if (query == null || query.trim().isEmpty()) return true;
+        String cleanQuery = stripAccents(query);
+        String[] tokens = cleanQuery.split("\\s+");
+        String productText = buildProductSearchText(p);
+        for (String token : tokens) {
+            if (!productText.contains(token)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static String buildProductSearchText(Product p) {
+        if (p == null) return "";
+        StringBuilder sb = new StringBuilder();
+        if (p.getName() != null) sb.append(p.getName()).append(' ');
+        if (p.getBrand() != null) sb.append(p.getBrand()).append(' ');
+        if (p.getCategory() != null) sb.append(p.getCategory()).append(' ');
+        if (p.getCategoryLabel() != null) sb.append(p.getCategoryLabel()).append(' ');
+        if (p.getDescription() != null) sb.append(p.getDescription()).append(' ');
+        if (p.getSpecs() != null) {
+            for (Map.Entry<String, String> entry : p.getSpecs().entrySet()) {
+                if (entry.getKey() != null) sb.append(entry.getKey()).append(' ');
+                if (entry.getValue() != null) sb.append(entry.getValue()).append(' ');
+            }
+        }
+        for (String v : p.getVariantNames()) {
+            sb.append(v).append(' ');
+        }
+        return stripAccents(sb.toString());
+    }
+
+    public static String stripAccents(String input) {
+        if (input == null) return "";
+        String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
+        return DIACRITICS.matcher(normalized)
+                .replaceAll("")
+                .replace('đ', 'd')
+                .replace('Đ', 'D')
+                .toLowerCase(Locale.ROOT)
+                .trim();
     }
 
     public LiveData<List<Review>> getReviews() {
