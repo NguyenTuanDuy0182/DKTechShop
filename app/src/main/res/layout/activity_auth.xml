@@ -165,6 +165,16 @@
                 app:backgroundTint="@color/md_theme_light_primary"
                 android:textColor="@color/md_theme_light_onPrimary" />
 
+            <!-- Google Sign-In Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_google_sign_in"
+                style="@style/Widget.DKTechShop.Button.OutlinedPill"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="10dp"
+                android:text="Đăng nhập bằng Google"
+                android:textSize="14sp" />
+
             <!-- Switch Tab Link -->
             <TextView
                 android:id="@+id/tv_switch_auth"

@@ -6,14 +6,27 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
+import com.ecommerce.dktechshop.data.model.User;
 import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.Task;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.firebase.auth.AuthCredential;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.GoogleAuthProvider;
 
 public class AuthActivity extends AppCompatActivity {
 
@@ -76,6 +89,61 @@ public class AuthActivity extends AppCompatActivity {
             startActivity(intent);
             finish();
         });
+
+        // Đăng nhập Google
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+        GoogleSignInClient googleSignInClient = GoogleSignIn.getClient(this, gso);
+
+        ActivityResultLauncher<Intent> googleLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(result.getData());
+                    try {
+                        GoogleSignInAccount account = task.getResult(ApiException.class);
+                        if (account != null && account.getIdToken() != null) {
+                            firebaseAuthWithGoogle(account.getIdToken());
+                        }
+                    } catch (ApiException e) {
+                        Toast.makeText(this, "Đăng nhập Google thất bại", Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
+
+        findViewById(R.id.btn_google_sign_in).setOnClickListener(v -> {
+            googleLauncher.launch(googleSignInClient.getSignInIntent());
+        });
+    }
+
+    private void firebaseAuthWithGoogle(String idToken) {
+        AuthCredential credential = GoogleAuthProvider.getCredential(idToken, null);
+        FirebaseAuth.getInstance().signInWithCredential(credential)
+                .addOnCompleteListener(this, task -> {
+                    if (task.isSuccessful()) {
+                        FirebaseUser fbUser = FirebaseAuth.getInstance().getCurrentUser();
+                        User currentUser = MockRepository.getInstance().getCurrentUser();
+                        if (fbUser != null) {
+                            currentUser.setUid(fbUser.getUid());
+                            if (fbUser.getDisplayName() != null) {
+                                currentUser.setName(fbUser.getDisplayName());
+                            }
+                            if (fbUser.getEmail() != null) {
+                                currentUser.setEmail(fbUser.getEmail());
+                            }
+                        }
+                        currentUser.setLoggedIn(true);
+                        Toast.makeText(this, "Xin chào " + currentUser.getName() + "!", Toast.LENGTH_SHORT).show();
+
+                        Intent intent = new Intent(this, MainActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                        finish();
+                    } else {
+                        Toast.makeText(this, "Lỗi đăng nhập Firebase", Toast.LENGTH_SHORT).show();
+                    }
+                });
     }
 
     private void toggleAuthMode() {

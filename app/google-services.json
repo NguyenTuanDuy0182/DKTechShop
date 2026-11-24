@@ -12,7 +12,20 @@
           "package_name": "com.ecommerce.dktechshop"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "612573026211-nf3ard7lut80uae7v00d2r6d8aa2uerd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ecommerce.dktechshop",
+            "certificate_hash": "755692e7203d0e10717c53cac235fc43cb980c08"
+          }
+        },
+        {
+          "client_id": "612573026211-1sktd52tks98b1fuaiovt62sbjeoguqo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAq1lcwLHiimxXnbG-vrACk0RNNbddI_78"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "612573026211-1sktd52tks98b1fuaiovt62sbjeoguqo.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
