@@ -27,6 +27,7 @@ import com.ecommerce.dktechshop.ui.viewmodel.ShopViewModel;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
@@ -35,7 +36,9 @@ public class HomeFragment extends Fragment {
     private ProductGridAdapter adapter;
     private TextView tvSectionTitle;
     private TextView tvGreetingName;
-    private String currentCategory = "all";
+    private ShopViewModel viewModel;
+    private CircularProgressIndicator progressLoading;
+    private RecyclerView rvProducts;
     private CartViewModel cartViewModel;
     private AuthViewModel authViewModel;
 
@@ -59,10 +62,10 @@ public class HomeFragment extends Fragment {
         MaterialCardView cardPromo = view.findViewById(R.id.card_promo_banner);
         ChipGroup chipGroup = view.findViewById(R.id.chip_group_category);
         tvSectionTitle = view.findViewById(R.id.tv_section_title);
-        RecyclerView rvProducts = view.findViewById(R.id.rv_products_grid);
+        rvProducts = view.findViewById(R.id.rv_products_grid);
+        progressLoading = view.findViewById(R.id.progress_loading);
 
-        // Hiển thị ngay tên người dùng từ Firebase Auth (nếu có cache) hoặc
-        // MockRepository
+        // Hiển thị ngay tên người dùng từ Firebase Auth (nếu có cache) hoặc MockRepository
         updateGreeting();
 
         // Lắng nghe dữ liệu người dùng thời gian thực từ AuthViewModel
@@ -140,15 +143,10 @@ public class HomeFragment extends Fragment {
             } else if (checkedIds.contains(R.id.chip_keyboard)) {
                 category = "keyboard";
             } else if (checkedIds.contains(R.id.chip_under35)) {
-                currentCategory = "under35";
-            } else {
-                currentCategory = "all";
+                category = "under35";
             }
-            updateProductList();
+            viewModel.filterByCategory(category);
         });
-
-        updateProductList();
-        MockRepository.getInstance().addListener(this);
     }
 
     private void updateGreeting() {
@@ -163,32 +161,9 @@ public class HomeFragment extends Fragment {
         }
     }
 
-    private void updateProductList() {
-        List<Product> list = MockRepository.getInstance().filterProducts(currentCategory);
-        adapter.setProducts(list);
-        if (tvSectionTitle != null) {
-            tvSectionTitle.setText("Thiết bị nổi bật (" + list.size() + ")");
-        }
-    }
-
     @Override
     public void onResume() {
         super.onResume();
         updateGreeting();
-        updateProductList();
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        MockRepository.getInstance().removeListener(this);
-    }
-
-    @Override
-    public void onDataChanged() {
-        if (isAdded()) {
-            updateGreeting();
-            updateProductList();
-        }
     }
 }

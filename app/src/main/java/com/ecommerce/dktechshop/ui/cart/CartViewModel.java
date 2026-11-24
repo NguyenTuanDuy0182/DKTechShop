@@ -31,8 +31,10 @@ public class CartViewModel extends ViewModel {
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
     private final MutableLiveData<String> successMessage = new MutableLiveData<>();
     private final MutableLiveData<Order> checkoutSuccessOrder = new MutableLiveData<>();
+    private final MutableLiveData<List<Order>> orders = new MutableLiveData<>(new ArrayList<>());
 
     private ListenerRegistration cartListenerRegistration;
+    private ListenerRegistration orderListenerRegistration;
 
     public CartViewModel() {
         this(CartRepository.getInstance(), OrderRepository.getInstance());
@@ -42,6 +44,28 @@ public class CartViewModel extends ViewModel {
         this.cartRepository = cartRepository;
         this.orderRepository = orderRepository;
         startListeningCart();
+        startListeningOrders();
+    }
+
+    public LiveData<List<Order>> getOrders() {
+        return orders;
+    }
+
+    public void startListeningOrders() {
+        if (orderListenerRegistration != null) {
+            orderListenerRegistration.remove();
+        }
+        orderListenerRegistration = orderRepository.listenUserOrders(new OrderRepository.OrderListCallback() {
+            @Override
+            public void onSuccess(List<Order> list) {
+                orders.setValue(list != null ? list : new ArrayList<>());
+            }
+
+            @Override
+            public void onFailure(String error) {
+                errorMessage.setValue(error);
+            }
+        });
     }
 
     public LiveData<List<CartItem>> getCartItems() {
@@ -233,7 +257,7 @@ public class CartViewModel extends ViewModel {
         long total = totalVal != null ? totalVal.longValue() : 0L;
 
         String orderId = "TG-2026-" + (1000 + (int) (Math.random() * 9000));
-        String createdAt = "Hôm nay • " + new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
+        String createdAt = new SimpleDateFormat("dd/MM/yyyy • HH:mm", Locale.getDefault()).format(new Date());
 
         Order newOrder = new Order(
                 orderId,
@@ -269,6 +293,10 @@ public class CartViewModel extends ViewModel {
         if (cartListenerRegistration != null) {
             cartListenerRegistration.remove();
             cartListenerRegistration = null;
+        }
+        if (orderListenerRegistration != null) {
+            orderListenerRegistration.remove();
+            orderListenerRegistration = null;
         }
     }
 }

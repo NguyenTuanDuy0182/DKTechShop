@@ -42,4 +42,14 @@
     <color name="banner_gradient_end">#4F378B</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Order Status Colors -->
+    <color name="status_processing_bg">#FEF3C7</color>
+    <color name="status_processing_text">#92400E</color>
+    <color name="status_delivering_bg">#DBEAFE</color>
+    <color name="status_delivering_text">#1D4ED8</color>
+    <color name="status_delivered_bg">#D1FAE5</color>
+    <color name="status_delivered_text">#059669</color>
+    <color name="status_cancelled_bg">#FEE2E2</color>
+    <color name="status_cancelled_text">#B91C1C</color>
 </resources>

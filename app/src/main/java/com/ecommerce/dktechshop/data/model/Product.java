@@ -1,5 +1,8 @@
 package com.ecommerce.dktechshop.data.model;
 
+import com.google.firebase.firestore.Exclude;
+import com.google.firebase.firestore.PropertyName;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,15 +24,14 @@ public class Product implements Serializable {
     private String thumbnailUrl = "";
     private String description = "";
     private Map<String, String> specs = new HashMap<>();
-    private List<String> variants = new ArrayList<>();
-    private String thumbnailUrl = "";
+    private List<Object> variants = new ArrayList<>();
 
     // Mandatory no-arg constructor for Firestore deserialization
     public Product() {}
 
     public Product(String id, String name, String brand, String category, String categoryLabel,
                    long price, long originalPrice, int discountPercent, double rating,
-                   int reviewCount, int stock, Map<String, String> specs, List<String> variants) {
+                   int reviewCount, int stock, Map<String, String> specs, List<?> variants) {
         this.id = id;
         this.name = name;
         this.brand = brand;
@@ -42,13 +44,13 @@ public class Product implements Serializable {
         this.reviewCount = reviewCount;
         this.stock = stock;
         this.specs = specs != null ? specs : new HashMap<>();
-        this.variants = variants != null ? variants : new ArrayList<>();
+        this.variants = variants != null ? new ArrayList<>(variants) : new ArrayList<>();
         this.thumbnailUrl = "";
     }
 
     public Product(String id, String name, String brand, String category, String categoryLabel,
                    long price, long originalPrice, int discountPercent, double rating,
-                   int reviewCount, int stock, Map<String, String> specs, List<String> variants,
+                   int reviewCount, int stock, Map<String, String> specs, List<?> variants,
                    String thumbnailUrl) {
         this(id, name, brand, category, categoryLabel, price, originalPrice, discountPercent, rating, reviewCount, stock, specs, variants);
         this.thumbnailUrl = thumbnailUrl != null ? thumbnailUrl : "";
@@ -82,8 +84,51 @@ public class Product implements Serializable {
     public void setDescription(String description) { this.description = description; }
     public Map<String, String> getSpecs() { return specs; }
     public void setSpecs(Map<String, String> specs) { this.specs = specs; }
-    public List<String> getVariants() { return variants; }
-    public void setVariants(List<String> variants) { this.variants = variants; }
-    public String getThumbnailUrl() { return thumbnailUrl; }
-    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
+    @Exclude
+    public List<String> getVariants() {
+        List<String> result = new ArrayList<>();
+        if (variants != null) {
+            for (Object obj : variants) {
+                if (obj instanceof String) {
+                    String s = (String) obj;
+                    if (!s.trim().isEmpty()) {
+                        result.add(s);
+                    }
+                } else if (obj instanceof Map) {
+                    Map<?, ?> map = (Map<?, ?>) obj;
+                    if (map.containsKey("name") && map.get("name") != null) {
+                        result.add(String.valueOf(map.get("name")));
+                    } else if (map.containsKey("variant") && map.get("variant") != null) {
+                        result.add(String.valueOf(map.get("variant")));
+                    } else if (map.containsKey("title") && map.get("title") != null) {
+                        result.add(String.valueOf(map.get("title")));
+                    } else if (map.containsKey("label") && map.get("label") != null) {
+                        result.add(String.valueOf(map.get("label")));
+                    } else if (map.containsKey("color") && map.get("color") != null) {
+                        result.add(String.valueOf(map.get("color")));
+                    } else if (map.containsKey("value") && map.get("value") != null) {
+                        result.add(String.valueOf(map.get("value")));
+                    } else if (!map.isEmpty()) {
+                        result.add(String.valueOf(map.values().iterator().next()));
+                    }
+                } else if (obj != null) {
+                    result.add(obj.toString());
+                }
+            }
+        }
+        if (result.isEmpty()) {
+            result.add("Mặc định");
+        }
+        return result;
+    }
+
+    @PropertyName("variants")
+    public List<Object> getRawVariants() {
+        return variants;
+    }
+
+    @PropertyName("variants")
+    public void setVariants(List<Object> variants) {
+        this.variants = variants != null ? variants : new ArrayList<>();
+    }
 }

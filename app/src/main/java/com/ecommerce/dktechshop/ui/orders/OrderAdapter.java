@@ -26,6 +26,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.ViewHolder> 
         void onCancelOrder(Order order);
         void onConfirmReceived(Order order);
         void onReorder(Order order);
+        void onOrderClick(Order order);
     }
 
     private List<Order> orderList = new ArrayList<>();
@@ -50,35 +51,47 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.ViewHolder> 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Order o = orderList.get(position);
-        holder.tvOrderId.setText(o.getOrderId());
+        holder.tvOrderId.setText("#" + o.getOrderId());
         holder.tvDatePayment.setText(o.getCreatedAt() + " • " + o.getPaymentMethod());
-        holder.tvStatusPill.setText(o.getStatus());
         holder.tvTotal.setText(MockRepository.formatVND(o.getTotalAmount()));
 
-        // Thiết lập trạng thái và hành động phù hợp với vai trò Người mua (Customer)
-        if ("Đang xử lý".equalsIgnoreCase(o.getStatus())) {
-            holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_tertiaryContainer)));
-            holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onTertiaryContainer));
+        // Item click listener để mở OrderDetailActivity
+        holder.itemView.setOnClickListener(v -> {
+            if (listener != null) listener.onOrderClick(o);
+        });
+
+        // Thiết lập trạng thái đơn hàng trực quan bằng màu sắc: Đang xử lý, Đang giao, Đã giao, Đã hủy
+        String status = o.getStatus() != null ? o.getStatus().trim() : "Đang xử lý";
+
+        if ("Đang xử lý".equalsIgnoreCase(status)) {
+            holder.tvStatusPill.setText("● Đang xử lý");
+            holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_processing_bg)));
+            holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_processing_text));
+
             holder.btnAction.setText("Hủy đơn");
-            holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_errorContainer)));
-            holder.btnAction.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onErrorContainer));
+            holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_cancelled_bg)));
+            holder.btnAction.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_cancelled_text));
             holder.btnAction.setVisibility(View.VISIBLE);
             holder.btnAction.setOnClickListener(v -> {
                 if (listener != null) listener.onCancelOrder(o);
             });
-        } else if ("Đang giao".equalsIgnoreCase(o.getStatus())) {
-            holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_primaryContainer)));
-            holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onPrimaryContainer));
+        } else if ("Đang giao".equalsIgnoreCase(status)) {
+            holder.tvStatusPill.setText("● Đang giao");
+            holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_delivering_bg)));
+            holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_delivering_text));
+
             holder.btnAction.setText("Đã nhận hàng");
-            holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_primaryContainer)));
-            holder.btnAction.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onPrimaryContainer));
+            holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_delivering_bg)));
+            holder.btnAction.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_delivering_text));
             holder.btnAction.setVisibility(View.VISIBLE);
             holder.btnAction.setOnClickListener(v -> {
                 if (listener != null) listener.onConfirmReceived(o);
             });
-        } else if ("Đã hủy".equalsIgnoreCase(o.getStatus())) {
-            holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_errorContainer)));
-            holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onErrorContainer));
+        } else if ("Đã hủy".equalsIgnoreCase(status)) {
+            holder.tvStatusPill.setText("● Đã hủy");
+            holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_cancelled_bg)));
+            holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_cancelled_text));
+
             holder.btnAction.setText("Mua lại");
             holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_surfaceContainerHigh)));
             holder.btnAction.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onSurface));
@@ -87,51 +100,55 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.ViewHolder> 
                 if (listener != null) listener.onReorder(o);
             });
         } else {
-            // Hoàn thành
-            holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.green_container)));
-            holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.green_accent));
+            // "Đã giao" hoặc "Hoàn thành"
+            holder.tvStatusPill.setText("● " + (status.equalsIgnoreCase("Hoàn thành") ? "Đã giao" : status));
+            holder.tvStatusPill.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_delivered_bg)));
+            holder.tvStatusPill.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_delivered_text));
+
             holder.btnAction.setText("Mua lại");
-            holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.green_container)));
-            holder.btnAction.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.green_accent));
+            holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_delivered_bg)));
+            holder.btnAction.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.status_delivered_text));
             holder.btnAction.setVisibility(View.VISIBLE);
             holder.btnAction.setOnClickListener(v -> {
                 if (listener != null) listener.onReorder(o);
             });
         }
 
-        // Populate items sub-container
+        // Hiển thị danh sách sản phẩm tóm tắt trong thẻ đơn hàng
         holder.layoutItemsContainer.removeAllViews();
-        for (OrderItem item : o.getItems()) {
-            LinearLayout row = new LinearLayout(holder.itemView.getContext());
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setPadding(0, 4, 0, 4);
+        if (o.getItems() != null) {
+            for (OrderItem item : o.getItems()) {
+                LinearLayout row = new LinearLayout(holder.itemView.getContext());
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setPadding(0, 4, 0, 4);
 
-            LinearLayout textCol = new LinearLayout(holder.itemView.getContext());
-            textCol.setOrientation(LinearLayout.VERTICAL);
-            LinearLayout.LayoutParams lpText = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            textCol.setLayoutParams(lpText);
+                LinearLayout textCol = new LinearLayout(holder.itemView.getContext());
+                textCol.setOrientation(LinearLayout.VERTICAL);
+                LinearLayout.LayoutParams lpText = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+                textCol.setLayoutParams(lpText);
 
-            TextView tvItemName = new TextView(holder.itemView.getContext());
-            tvItemName.setText(item.getProductName());
-            tvItemName.setTextSize(12);
-            tvItemName.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onSurface));
-            textCol.addView(tvItemName);
+                TextView tvItemName = new TextView(holder.itemView.getContext());
+                tvItemName.setText(item.getProductName());
+                tvItemName.setTextSize(12);
+                tvItemName.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onSurface));
+                textCol.addView(tvItemName);
 
-            TextView tvItemVariant = new TextView(holder.itemView.getContext());
-            tvItemVariant.setText(item.getVariant() + " × " + item.getQuantity());
-            tvItemVariant.setTextSize(10);
-            tvItemVariant.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onSurfaceVariant));
-            textCol.addView(tvItemVariant);
+                TextView tvItemVariant = new TextView(holder.itemView.getContext());
+                tvItemVariant.setText(item.getVariant() + " × " + item.getQuantity());
+                tvItemVariant.setTextSize(10);
+                tvItemVariant.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onSurfaceVariant));
+                textCol.addView(tvItemVariant);
 
-            row.addView(textCol);
+                row.addView(textCol);
 
-            TextView tvItemPrice = new TextView(holder.itemView.getContext());
-            tvItemPrice.setText(MockRepository.formatVND(item.getPrice() * item.getQuantity()));
-            tvItemPrice.setTextSize(12);
-            tvItemPrice.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onSurface));
-            row.addView(tvItemPrice);
+                TextView tvItemPrice = new TextView(holder.itemView.getContext());
+                tvItemPrice.setText(MockRepository.formatVND(item.getPrice() * item.getQuantity()));
+                tvItemPrice.setTextSize(12);
+                tvItemPrice.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onSurface));
+                row.addView(tvItemPrice);
 
-            holder.layoutItemsContainer.addView(row);
+                holder.layoutItemsContainer.addView(row);
+            }
         }
     }
 

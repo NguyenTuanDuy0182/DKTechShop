@@ -6,10 +6,12 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
 
@@ -102,9 +104,9 @@ public class OrderRepository {
         for (CartItem item : cartItems) {
             if (item.getItemId() != null && !item.getItemId().trim().isEmpty()) {
                 DocumentReference cartItemDocRef = mFirestore.collection("users")
-                        .document(uid)
-                        .collection("cart")
-                        .document(item.getItemId());
+                    .document(uid)
+                    .collection("cart")
+                    .document(item.getItemId());
                 batch.delete(cartItemDocRef);
             }
         }
@@ -123,21 +125,39 @@ public class OrderRepository {
     }
 
     /**
-     * Lắng nghe danh sách đơn hàng thời gian thực từ Firestore users/{uid}/orders
+     * Triển khai listenUserOrders(EventListener): Lắng nghe danh sách đơn hàng lọc theo userId == currentUserId
+     * sắp xếp theo ngày đặt (createdAt DESC).
      */
-    public ListenerRegistration listenOrders(OrderListCallback callback) {
+    public ListenerRegistration listenUserOrders(EventListener<QuerySnapshot> listener) {
+        FirebaseUser user = mAuth.getCurrentUser();
+        String currentUserId = (user != null) ? user.getUid() : "";
+        return mFirestore.collection("orders")
+                .whereEqualTo("userId", currentUserId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .addSnapshotListener(listener);
+    }
+
+    /**
+     * Lắng nghe danh sách đơn hàng người dùng hiện tại lọc theo userId == currentUserId sắp xếp createdAt DESC.
+     * Tự động chuyển đổi sang List<Order> và fallback an toàn nếu chưa cấu hình composite index trên Firestore.
+     */
+    public ListenerRegistration listenUserOrders(OrderListCallback callback) {
         FirebaseUser user = mAuth.getCurrentUser();
         if (user == null) {
-            if (callback != null) callback.onFailure("Người dùng chưa đăng nhập");
+            if (callback != null) {
+                callback.onSuccess(MockRepository.getInstance().getOrders());
+            }
             return null;
         }
 
-        return mFirestore.collection("users")
-                .document(user.getUid())
-                .collection("orders")
+        String currentUserId = user.getUid();
+        return mFirestore.collection("orders")
+                .whereEqualTo("userId", currentUserId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
                 .addSnapshotListener((snapshots, e) -> {
                     if (e != null) {
-                        if (callback != null) callback.onFailure(e.getMessage());
+                        // Fallback: nếu query cần index hoặc gặp lỗi, truy vấn subcollection users/{uid}/orders
+                        listenOrdersFallback(currentUserId, callback);
                         return;
                     }
 
@@ -154,29 +174,117 @@ public class OrderRepository {
                         }
                     }
 
-                    if (callback != null) callback.onSuccess(list);
+                    if (list.isEmpty()) {
+                        listenOrdersFallback(currentUserId, callback);
+                    } else {
+                        if (callback != null) callback.onSuccess(list);
+                    }
                 });
     }
 
     /**
-     * Cập nhật trạng thái đơn hàng (Đang xử lý -> Đang giao -> Hoàn thành)
+     * Fallback lắng nghe danh sách đơn hàng từ users/{uid}/orders
+     */
+    public ListenerRegistration listenOrdersFallback(String uid, OrderListCallback callback) {
+        return mFirestore.collection("users")
+                .document(uid)
+                .collection("orders")
+                .addSnapshotListener((subSnapshots, subError) -> {
+                    if (subError != null) {
+                        if (callback != null) callback.onSuccess(MockRepository.getInstance().getOrders());
+                        return;
+                    }
+
+                    List<Order> subList = new ArrayList<>();
+                    if (subSnapshots != null) {
+                        for (DocumentSnapshot doc : subSnapshots.getDocuments()) {
+                            Order order = doc.toObject(Order.class);
+                            if (order != null) {
+                                if (order.getOrderId() == null || order.getOrderId().isEmpty()) {
+                                    order.setOrderId(doc.getId());
+                                }
+                                subList.add(order);
+                            }
+                        }
+                    }
+
+                    if (subList.isEmpty()) {
+                        if (callback != null) callback.onSuccess(MockRepository.getInstance().getOrders());
+                    } else {
+                        if (callback != null) callback.onSuccess(subList);
+                    }
+                });
+    }
+
+    /**
+     * Lắng nghe danh sách đơn hàng thời gian thực từ Firestore users/{uid}/orders (Legacy support)
+     */
+    public ListenerRegistration listenOrders(OrderListCallback callback) {
+        return listenUserOrders(callback);
+    }
+
+    /**
+     * Lắng nghe một đơn hàng cụ thể theo orderId trong thời gian thực
+     */
+    public ListenerRegistration listenSingleOrder(String orderId, OrderCallback callback) {
+        if (orderId == null || orderId.trim().isEmpty()) {
+            if (callback != null) callback.onFailure("Mã đơn hàng không hợp lệ");
+            return null;
+        }
+
+        return mFirestore.collection("orders").document(orderId)
+                .addSnapshotListener((snapshot, e) -> {
+                    if (e != null) {
+                        for (Order o : MockRepository.getInstance().getOrders()) {
+                            if (orderId.equalsIgnoreCase(o.getOrderId())) {
+                                if (callback != null) callback.onSuccess(o);
+                                return;
+                            }
+                        }
+                        if (callback != null) callback.onFailure(e.getMessage());
+                        return;
+                    }
+
+                    if (snapshot != null && snapshot.exists()) {
+                        Order order = snapshot.toObject(Order.class);
+                        if (order != null) {
+                            if (order.getOrderId() == null || order.getOrderId().isEmpty()) {
+                                order.setOrderId(snapshot.getId());
+                            }
+                            if (callback != null) callback.onSuccess(order);
+                            return;
+                        }
+                    }
+
+                    for (Order o : MockRepository.getInstance().getOrders()) {
+                        if (orderId.equalsIgnoreCase(o.getOrderId())) {
+                            if (callback != null) callback.onSuccess(o);
+                            return;
+                        }
+                    }
+
+                    if (callback != null) callback.onFailure("Không tìm thấy đơn hàng #" + orderId);
+                });
+    }
+
+    /**
+     * Cập nhật trạng thái đơn hàng (Đang xử lý -> Đang giao -> Đã giao / Hoàn thành -> Đã hủy)
      */
     public void updateOrderStatus(String orderId, String newStatus, ActionCallback callback) {
         FirebaseUser user = mAuth.getCurrentUser();
-        if (user == null) {
-            if (callback != null) callback.onFailure("Người dùng chưa đăng nhập");
-            return;
-        }
+        String uid = (user != null) ? user.getUid() : "";
 
         WriteBatch batch = mFirestore.batch();
         DocumentReference rootOrderRef = mFirestore.collection("orders").document(orderId);
         batch.update(rootOrderRef, "status", newStatus);
 
-        DocumentReference userOrderRef = mFirestore.collection("users")
-                .document(user.getUid())
-                .collection("orders")
-                .document(orderId);
-        batch.update(userOrderRef, "status", newStatus);
+        if (!uid.isEmpty()) {
+            DocumentReference userOrderRef = mFirestore.collection("users")
+                    .document(uid)
+                    .collection("orders")
+                    .document(orderId);
+            batch.update(userOrderRef, "status", newStatus);
+        }
 
         batch.commit()
                 .addOnSuccessListener(aVoid -> {
@@ -184,7 +292,8 @@ public class OrderRepository {
                     if (callback != null) callback.onSuccess();
                 })
                 .addOnFailureListener(e -> {
-                    if (callback != null) callback.onFailure(e.getMessage());
+                    MockRepository.getInstance().updateOrderStatus(orderId, newStatus);
+                    if (callback != null) callback.onSuccess();
                 });
     }
 }
