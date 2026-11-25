@@ -73,7 +73,6 @@ public class HomeFragment extends Fragment {
         tvGreetingName = view.findViewById(R.id.tv_greeting_name);
         MaterialButton btnProfile = view.findViewById(R.id.btn_home_profile);
         MaterialCardView cardSearch = view.findViewById(R.id.card_search_trigger);
-        MaterialCardView cardPromo = view.findViewById(R.id.card_promo_banner);
         ChipGroup chipGroup = view.findViewById(R.id.chip_group_category);
         tvSectionTitle = view.findViewById(R.id.tv_section_title);
         btnHomeSort = view.findViewById(R.id.btn_home_sort);
@@ -132,12 +131,6 @@ public class HomeFragment extends Fragment {
 
         cardSearch.setOnClickListener(v -> {
             Intent intent = new Intent(requireContext(), SearchActivity.class);
-            startActivity(intent);
-        });
-
-        cardPromo.setOnClickListener(v -> {
-            Intent intent = new Intent(requireContext(), ProductDetailActivity.class);
-            intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT_ID, "prod_logi_gpx2");
             startActivity(intent);
         });
 

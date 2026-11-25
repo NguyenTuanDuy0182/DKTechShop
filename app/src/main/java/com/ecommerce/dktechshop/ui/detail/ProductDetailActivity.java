@@ -154,7 +154,6 @@ public class ProductDetailActivity extends AppCompatActivity {
 
         MaterialButton btnBack = findViewById(R.id.btn_detail_back);
         MaterialButton btnCart = findViewById(R.id.btn_detail_cart);
-        tvCartBadge = findViewById(R.id.tv_detail_cart_badge);
 
         TextView tvBrandBadge = findViewById(R.id.tv_detail_brand_badge);
         ImageView ivHeroIcon = findViewById(R.id.iv_detail_hero_icon);

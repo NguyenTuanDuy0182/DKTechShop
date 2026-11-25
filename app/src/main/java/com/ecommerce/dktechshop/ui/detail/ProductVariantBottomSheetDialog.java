@@ -44,10 +44,6 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
     private MaterialButton btnPlus;
     private MaterialButton btnConfirm;
 
-    public ProductVariantBottomSheetDialog(Product product, boolean isBuyNow, OnVariantActionListener listener) {
-        this(product, isBuyNow, null, listener);
-    }
-
     public ProductVariantBottomSheetDialog(Product product, boolean isBuyNow, @Nullable ProductVariant initialVariant, OnVariantActionListener listener) {
         this.product = product;
         this.isBuyNow = isBuyNow;

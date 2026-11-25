@@ -424,18 +424,4 @@ public class ProductRepository {
                 })
                 .addOnFailureListener(callback::onError);
     }
-
-    public void checkUserPurchasedProduct(String productId, Callback<Boolean> callback) {
-        checkReviewEligibility(productId, new Callback<ReviewEligibility>() {
-            @Override
-            public void onSuccess(ReviewEligibility result) {
-                callback.onSuccess(result != null && result.status == ReviewEligibility.Status.ELIGIBLE);
-            }
-
-            @Override
-            public void onError(Exception e) {
-                callback.onError(e);
-            }
-        });
-    }
 }

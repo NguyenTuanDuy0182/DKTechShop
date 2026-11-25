@@ -28,8 +28,6 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
-import java.util.List;
-
 public class OrdersFragment extends Fragment {
 
     private OrderViewModel orderViewModel;

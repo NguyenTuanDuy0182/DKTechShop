@@ -34,11 +34,9 @@ public class CartViewModel extends ViewModel {
     private final MutableLiveData<Set<String>> selectedItemIdsLiveData = new MutableLiveData<>(new HashSet<>());
     private final MutableLiveData<Double> totalAmount = new MutableLiveData<>(0.0);
     private final MutableLiveData<Integer> cartCount = new MutableLiveData<>(0);
-    private final MutableLiveData<Integer> selectedItemCount = new MutableLiveData<>(0);
     private final MutableLiveData<Integer> selectedTotalQuantity = new MutableLiveData<>(0);
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
-    private final MutableLiveData<String> successMessage = new MutableLiveData<>();
     private final MutableLiveData<Order> checkoutSuccessOrder = new MutableLiveData<>();
 
     private final Set<String> selectedItemIds = new HashSet<>();
@@ -71,10 +69,6 @@ public class CartViewModel extends ViewModel {
         return cartCount;
     }
 
-    public LiveData<Integer> getSelectedItemCount() {
-        return selectedItemCount;
-    }
-
     public LiveData<Integer> getSelectedTotalQuantity() {
         return selectedTotalQuantity;
     }
@@ -85,10 +79,6 @@ public class CartViewModel extends ViewModel {
 
     public LiveData<String> getErrorMessage() {
         return errorMessage;
-    }
-
-    public LiveData<String> getSuccessMessage() {
-        return successMessage;
     }
 
     public LiveData<Order> getCheckoutSuccessOrder() {
@@ -160,18 +150,15 @@ public class CartViewModel extends ViewModel {
 
     private void recalculateSelection(List<CartItem> items) {
         long selectedTotal = calculateSelectedTotal(items, selectedItemIds);
-        int selItemCount = 0;
         int selQty = 0;
         if (items != null) {
             for (CartItem item : items) {
                 if (selectedItemIds.contains(item.getItemId())) {
-                    selItemCount++;
                     selQty += item.getQuantity();
                 }
             }
         }
         selectedItemIdsLiveData.setValue(new HashSet<>(selectedItemIds));
-        selectedItemCount.setValue(selItemCount);
         selectedTotalQuantity.setValue(selQty);
         totalAmount.setValue((double) selectedTotal);
     }
@@ -231,10 +218,6 @@ public class CartViewModel extends ViewModel {
     /**
      * Thêm sản phẩm vào giỏ hàng Firestore.
      */
-    public void addToCart(Product product, String variant, int qty) {
-        addToCart(product, variant, qty, null);
-    }
-
     public void addToCart(Product product, String variant, int qty, @Nullable CartRepository.ActionCallback callback) {
         if (product == null || qty <= 0) {
             if (callback != null) callback.onFailure("Số lượng không hợp lệ");
@@ -260,7 +243,6 @@ public class CartViewModel extends ViewModel {
             @Override
             public void onSuccess() {
                 isLoading.setValue(false);
-                successMessage.setValue("Đã thêm vào giỏ hàng!");
                 if (callback != null) callback.onSuccess();
             }
 
@@ -293,51 +275,11 @@ public class CartViewModel extends ViewModel {
     }
 
     /**
-     * Xóa một sản phẩm khỏi giỏ hàng.
-     */
-    public void deleteCartItem(String itemId) {
-        if (itemId == null || itemId.isEmpty()) return;
-
-        cartRepository.deleteCartItem(itemId, new CartRepository.ActionCallback() {
-            @Override
-            public void onSuccess() {
-                // Realtime snapshot listener sẽ tự động cập nhật UI
-            }
-
-            @Override
-            public void onFailure(String error) {
-                errorMessage.setValue(error);
-            }
-        });
-    }
-
-    /**
-     * Xóa toàn bộ giỏ hàng.
-     */
-    public void clearCart() {
-        cartRepository.clearCart(new CartRepository.ActionCallback() {
-            @Override
-            public void onSuccess() {
-                // Realtime snapshot listener sẽ tự động cập nhật UI
-            }
-
-            @Override
-            public void onFailure(String error) {
-                errorMessage.setValue(error);
-            }
-        });
-    }
-
-    /**
-     * Đặt hàng & Thanh toán các sản phẩm đã được chọn bằng Batch Write an toàn.
+     * Đặt hàng & Thanh toán các sản phẩm đã được chọn bằng Transaction an toàn.
      * Chỉ tạo đơn và xóa khỏi giỏ những sản phẩm được tick chọn.
      */
     public static String generateOrderId() {
         return "TG-2026-" + (1000 + (int) (Math.random() * 9000));
-    }
-
-    public void checkout(Address shippingAddress, String paymentMethod) {
-        checkout(shippingAddress, paymentMethod, "", "", null);
     }
 
     public void checkout(Address shippingAddress, String paymentMethod, String recipientName, String recipientPhone) {
@@ -414,7 +356,6 @@ public class CartViewModel extends ViewModel {
                 }
                 recalculateSelection(cartItems.getValue());
                 checkoutSuccessOrder.setValue(order);
-                successMessage.setValue("Đặt hàng thành công (" + order.getOrderId() + ")!");
             }
 
             @Override

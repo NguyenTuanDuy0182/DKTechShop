@@ -17,12 +17,10 @@
     <color name="md_theme_light_onTertiaryContainer">#21005D</color>
 
     <color name="md_theme_light_surface">#FAF9FD</color>
-    <color name="md_theme_light_surfaceDim">#DAD9DE</color>
     <color name="md_theme_light_surfaceContainerLowest">#FFFFFF</color>
     <color name="md_theme_light_surfaceContainerLow">#F4F3F7</color>
     <color name="md_theme_light_surfaceContainer">#EEEDF1</color>
     <color name="md_theme_light_surfaceContainerHigh">#E8E7EC</color>
-    <color name="md_theme_light_surfaceContainerHighest">#E2E2E6</color>
 
     <color name="md_theme_light_onSurface">#1A1B1F</color>
     <color name="md_theme_light_onSurfaceVariant">#44474F</color>
@@ -37,10 +35,6 @@
     <!-- Semantic & Accent Colors -->
     <color name="green_accent">#059669</color>
     <color name="green_container">#D1FAE5</color>
-    <color name="amber_star">#F59E0B</color>
-    <color name="banner_gradient_start">#0B57D0</color>
-    <color name="banner_gradient_end">#4F378B</color>
-    <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
     <!-- Order Status Colors -->

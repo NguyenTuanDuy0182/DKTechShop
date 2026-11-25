@@ -119,18 +119,6 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Promo Banner Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_promo_banner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:clickable="true"
-            android:focusable="true"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="2dp"
-            app:strokeWidth="0dp"/>
-
         <!-- Category Filter Chips -->
         <HorizontalScrollView
             android:layout_width="match_parent"

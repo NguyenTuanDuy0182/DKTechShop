@@ -9,11 +9,8 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
-import com.google.firebase.firestore.Query;
-import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
 
@@ -175,19 +172,6 @@ public class OrderRepository {
     }
 
     /**
-     * Triển khai listenUserOrders(EventListener): Lắng nghe danh sách đơn hàng lọc theo userId == currentUserId
-     * sắp xếp theo ngày đặt (createdAt DESC).
-     */
-    public ListenerRegistration listenUserOrders(EventListener<QuerySnapshot> listener) {
-        FirebaseUser user = mAuth.getCurrentUser();
-        String currentUserId = (user != null) ? user.getUid() : "";
-        return mFirestore.collection("orders")
-                .whereEqualTo("userId", currentUserId)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .addSnapshotListener(listener);
-    }
-
-    /**
      * Lắng nghe danh sách đơn hàng người dùng hiện tại lọc theo userId == currentUserId sắp xếp createdAt DESC.
      * Tự động chuyển đổi sang List<Order> và fallback an toàn nếu chưa cấu hình composite index trên Firestore.
      */
@@ -278,13 +262,6 @@ public class OrderRepository {
     }
 
     /**
-     * Lắng nghe danh sách đơn hàng thời gian thực từ Firestore users/{uid}/orders (Legacy support)
-     */
-    public ListenerRegistration listenOrders(OrderListCallback callback) {
-        return listenUserOrders(callback);
-    }
-
-    /**
      * Lắng nghe một đơn hàng cụ thể theo orderId trong thời gian thực
      */
     public ListenerRegistration listenSingleOrder(String orderId, OrderCallback callback) {
@@ -313,18 +290,6 @@ public class OrderRepository {
 
                     if (callback != null) callback.onFailure("Không tìm thấy đơn hàng #" + orderId);
                 });
-    }
-
-    public static Map<String, Long> aggregateCartItemQuantities(List<CartItem> items) {
-        Map<String, Long> totals = new HashMap<>();
-        if (items == null) return totals;
-        for (CartItem item : items) {
-            if (item != null && item.getProductId() != null && !item.getProductId().trim().isEmpty() && item.getQuantity() > 0) {
-                String pid = item.getProductId().trim();
-                totals.put(pid, totals.getOrDefault(pid, 0L) + item.getQuantity());
-            }
-        }
-        return totals;
     }
 
     public static Map<String, Long> aggregateOrderItemQuantities(List<OrderItem> items) {

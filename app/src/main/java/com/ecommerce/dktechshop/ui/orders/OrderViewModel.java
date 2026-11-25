@@ -40,10 +40,6 @@ public class OrderViewModel extends ViewModel {
         return filteredOrders;
     }
 
-    public LiveData<String> getCurrentStatusFilter() {
-        return currentStatusFilter;
-    }
-
     public LiveData<Boolean> getIsLoading() {
         return isLoading;
     }
@@ -130,14 +126,6 @@ public class OrderViewModel extends ViewModel {
                 errorMessage.setValue(error);
             }
         });
-    }
-
-    public void cancelOrder(String orderId) {
-        updateOrderStatus(orderId, "Đã hủy");
-    }
-
-    public void confirmReceived(String orderId) {
-        updateOrderStatus(orderId, "Đã giao");
     }
 
     @Override

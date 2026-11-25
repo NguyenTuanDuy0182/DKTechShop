@@ -11,7 +11,6 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
-import com.google.firebase.firestore.WriteBatch;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -232,60 +231,5 @@ public class CartRepository {
             }
             if (callback != null) callback.onFailure(msg);
         });
-    }
-
-    /**
-     * Xóa trực tiếp item khỏi giỏ hàng.
-     */
-    public void deleteCartItem(String itemId, ActionCallback callback) {
-        String uid = getCurrentUserId();
-        if (uid == null) {
-            if (callback != null) callback.onFailure("Người dùng chưa đăng nhập");
-            return;
-        }
-
-        getCartCollection(uid).document(itemId)
-                .delete()
-                .addOnSuccessListener(aVoid -> {
-                    if (callback != null) callback.onSuccess();
-                })
-                .addOnFailureListener(e -> {
-                    if (callback != null) callback.onFailure(e.getMessage());
-                });
-    }
-
-    /**
-     * Xóa toàn bộ giỏ hàng (ví dụ sau khi đặt hàng thành công).
-     */
-    public void clearCart(ActionCallback callback) {
-        String uid = getCurrentUserId();
-        if (uid == null) {
-            if (callback != null) callback.onFailure("Người dùng chưa đăng nhập");
-            return;
-        }
-
-        getCartCollection(uid).get()
-                .addOnSuccessListener(snapshots -> {
-                    if (snapshots.isEmpty()) {
-                        if (callback != null) callback.onSuccess();
-                        return;
-                    }
-
-                    WriteBatch batch = mFirestore.batch();
-                    for (DocumentSnapshot doc : snapshots.getDocuments()) {
-                        batch.delete(doc.getReference());
-                    }
-
-                    batch.commit()
-                            .addOnSuccessListener(aVoid -> {
-                                if (callback != null) callback.onSuccess();
-                            })
-                            .addOnFailureListener(e -> {
-                                if (callback != null) callback.onFailure(e.getMessage());
-                            });
-                })
-                .addOnFailureListener(e -> {
-                    if (callback != null) callback.onFailure(e.getMessage());
-                });
     }
 }

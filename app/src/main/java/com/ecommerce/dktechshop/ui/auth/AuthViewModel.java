@@ -218,12 +218,6 @@ public class AuthViewModel extends ViewModel {
     /**
      * Thêm địa chỉ mới vào subcollection users/{uid}/addresses.
      */
-    public void addAddress(String label, String detail) {
-        User user = currentUser.getValue();
-        String phone = user != null ? user.getPhone() : "";
-        addAddress(label, detail, phone);
-    }
-
     public void addAddress(String label, String detail, String phone) {
         isLoading.setValue(true);
         clearStatus();

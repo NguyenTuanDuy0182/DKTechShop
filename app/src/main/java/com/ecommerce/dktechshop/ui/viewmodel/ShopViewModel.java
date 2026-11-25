@@ -4,7 +4,6 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
-import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.model.Review;
 import com.ecommerce.dktechshop.data.repository.ProductRepository;
@@ -28,14 +27,11 @@ public class ShopViewModel extends ViewModel {
     private static final Pattern DIACRITICS = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
     private final ProductRepository repository;
     private final MutableLiveData<List<Product>> products = new MutableLiveData<>(new ArrayList<>());
-    private final MutableLiveData<String> selectedCategory = new MutableLiveData<>("all");
     private final MutableLiveData<SortOption> sortOption = new MutableLiveData<>(SortOption.DEFAULT);
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
     private final MutableLiveData<Product> selectedProduct = new MutableLiveData<>();
     private final MutableLiveData<List<Review>> reviews = new MutableLiveData<>(new ArrayList<>());
-    private final MutableLiveData<Boolean> isEligibleToReview = new MutableLiveData<>(false);
-    private final MutableLiveData<Boolean> reviewSubmitted = new MutableLiveData<>(false);
     private List<Product> masterProducts = new ArrayList<>();
     private List<Product> currentCategoryProducts = new ArrayList<>();
     private SortOption currentSort = SortOption.DEFAULT;
@@ -51,10 +47,6 @@ public class ShopViewModel extends ViewModel {
 
     public LiveData<List<Product>> getProducts() {
         return products;
-    }
-
-    public LiveData<String> getSelectedCategory() {
-        return selectedCategory;
     }
 
     public LiveData<SortOption> getSortOption() {
@@ -150,7 +142,6 @@ public class ShopViewModel extends ViewModel {
     }
 
     public void filterByCategory(String category) {
-        selectedCategory.setValue(category);
         isLoading.setValue(true);
         repository.getProductsByCategory(category, new ProductRepository.Callback<List<Product>>() {
             @Override
@@ -166,10 +157,6 @@ public class ShopViewModel extends ViewModel {
                 isLoading.setValue(false);
             }
         });
-    }
-
-    public void setMasterProducts(List<Product> products) {
-        this.masterProducts = products != null ? products : new ArrayList<>();
     }
 
     public void searchProducts(String query) {
@@ -235,14 +222,6 @@ public class ShopViewModel extends ViewModel {
         return reviews;
     }
 
-    public LiveData<Boolean> getIsEligibleToReview() {
-        return isEligibleToReview;
-    }
-
-    public LiveData<Boolean> getReviewSubmitted() {
-        return reviewSubmitted;
-    }
-
     public void loadReviews(String productId) {
         repository.getReviews(productId, new ProductRepository.Callback<List<Review>>() {
             @Override
@@ -257,48 +236,7 @@ public class ShopViewModel extends ViewModel {
         });
     }
 
-    public void checkPurchaseEligibility(String productId) {
-        checkPurchaseEligibility(productId, new ProductRepository.Callback<Boolean>() {
-            @Override
-            public void onSuccess(Boolean result) {
-                isEligibleToReview.setValue(result);
-            }
-
-            @Override
-            public void onError(Exception e) {
-                isEligibleToReview.setValue(false);
-            }
-        });
-    }
-
-    public void checkPurchaseEligibility(String productId, ProductRepository.Callback<Boolean> callback) {
-        repository.checkUserPurchasedProduct(productId, callback);
-    }
-
     public void checkReviewEligibility(String productId, ProductRepository.Callback<ProductRepository.ReviewEligibility> callback) {
         repository.checkReviewEligibility(productId, callback);
-    }
-
-    public void submitReview(Review review, Order order, Runnable onSuccess, Runnable onError) {
-        isLoading.setValue(true);
-        repository.addReview(review, order, new ProductRepository.Callback<Void>() {
-            @Override
-            public void onSuccess(Void result) {
-                isLoading.setValue(false);
-                reviewSubmitted.setValue(true);
-                loadReviews(review.getProductId());
-                if (review.getProductId() != null) {
-                    loadProductById(review.getProductId());
-                }
-                if (onSuccess != null) onSuccess.run();
-            }
-
-            @Override
-            public void onError(Exception e) {
-                isLoading.setValue(false);
-                errorMessage.setValue(e.getMessage());
-                if (onError != null) onError.run();
-            }
-        });
     }
 }
