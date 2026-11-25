@@ -1,6 +1,8 @@
 package com.ecommerce.dktechshop.ui.detail;
 
+import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -97,25 +99,14 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
                 chip.setText(title);
                 chip.setCheckable(true);
                 chip.setClickable(true);
+                chip.setCheckedIconVisible(false);
 
-                if (variant.getColorHex() != null && !variant.getColorHex().trim().isEmpty()) {
-                    try {
-                        int color = Color.parseColor(variant.getColorHex().trim());
-                        GradientDrawable dot = new GradientDrawable();
-                        dot.setShape(GradientDrawable.OVAL);
-                        dot.setSize(36, 36);
-                        dot.setColor(color);
-                        dot.setStroke(2, 0x33000000);
-                        chip.setChipIcon(dot);
-                        chip.setChipIconVisible(true);
-                    } catch (Exception ignored) {}
-                }
-
-                if (selectedVariant != null && variant.getName().equals(selectedVariant.getName())) {
-                    chip.setChecked(true);
-                }
+                boolean initialSelected = selectedVariant != null && variant.getName().equals(selectedVariant.getName());
+                chip.setChecked(initialSelected);
+                applyVariantChipStyle(chip, variant, initialSelected);
 
                 chip.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                    applyVariantChipStyle(chip, variant, isChecked);
                     if (isChecked) {
                         selectedVariant = variant;
                         updatePriceDisplay();
@@ -151,6 +142,34 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
             }
             dismiss();
         });
+    }
+
+    private void applyVariantChipStyle(Chip chip, ProductVariant variant, boolean isSelected) {
+        if (!isAdded()) return;
+        int primary = ContextCompat.getColor(requireContext(), R.color.md_theme_light_primary);
+        int onPrimary = ContextCompat.getColor(requireContext(), R.color.md_theme_light_onPrimary);
+        int surfaceWhite = ContextCompat.getColor(requireContext(), R.color.md_theme_light_surfaceContainerLowest);
+        int onSurface = ContextCompat.getColor(requireContext(), R.color.md_theme_light_onSurface);
+        float strokeWidth = 1.5f * getResources().getDisplayMetrics().density;
+
+        chip.setChipStrokeColor(ColorStateList.valueOf(primary));
+        chip.setChipStrokeWidth(strokeWidth);
+        chip.setChipBackgroundColor(ColorStateList.valueOf(isSelected ? primary : surfaceWhite));
+        chip.setTextColor(isSelected ? onPrimary : onSurface);
+        chip.setTypeface(null, isSelected ? Typeface.BOLD : Typeface.NORMAL);
+
+        if (variant.getColorHex() != null && !variant.getColorHex().trim().isEmpty()) {
+            try {
+                int color = Color.parseColor(variant.getColorHex().trim());
+                GradientDrawable dot = new GradientDrawable();
+                dot.setShape(GradientDrawable.OVAL);
+                dot.setSize(36, 36);
+                dot.setColor(color);
+                dot.setStroke(isSelected ? 3 : 2, isSelected ? Color.WHITE : 0x33000000);
+                chip.setChipIcon(dot);
+                chip.setChipIconVisible(true);
+            } catch (Exception ignored) {}
+        }
     }
 
     private void updatePriceDisplay() {

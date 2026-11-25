@@ -1,6 +1,7 @@
 package com.ecommerce.dktechshop.ui.detail;
 
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.drawable.GradientDrawable;
@@ -211,6 +212,11 @@ public class ProductDetailActivity extends AppCompatActivity {
         });
 
         chipGroupVariants.removeAllViews();
+        int primaryColor = ContextCompat.getColor(this, R.color.md_theme_light_primary);
+        int whiteBg = ContextCompat.getColor(this, R.color.md_theme_light_surfaceContainerLowest);
+        int onSurfaceColor = ContextCompat.getColor(this, R.color.md_theme_light_onSurface);
+        float strokeWidthPx = 1.5f * getResources().getDisplayMetrics().density;
+
         for (ProductVariant v : product.getVariants()) {
             Chip chip = new Chip(this);
             String title = v.getName();
@@ -219,6 +225,10 @@ public class ProductDetailActivity extends AppCompatActivity {
             }
             chip.setText(title);
             chip.setCheckable(false);
+            chip.setChipBackgroundColor(ColorStateList.valueOf(whiteBg));
+            chip.setChipStrokeColor(ColorStateList.valueOf(primaryColor));
+            chip.setChipStrokeWidth(strokeWidthPx);
+            chip.setTextColor(onSurfaceColor);
 
             if (v.getColorHex() != null && !v.getColorHex().trim().isEmpty()) {
                 try {
