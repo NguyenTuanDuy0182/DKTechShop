@@ -1,5 +1,6 @@
 package com.ecommerce.dktechshop.ui.cart;
 
+import androidx.annotation.Nullable;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
@@ -231,7 +232,14 @@ public class CartViewModel extends ViewModel {
      * Thêm sản phẩm vào giỏ hàng Firestore.
      */
     public void addToCart(Product product, String variant, int qty) {
-        if (product == null || qty <= 0) return;
+        addToCart(product, variant, qty, null);
+    }
+
+    public void addToCart(Product product, String variant, int qty, @Nullable CartRepository.ActionCallback callback) {
+        if (product == null || qty <= 0) {
+            if (callback != null) callback.onFailure("Số lượng không hợp lệ");
+            return;
+        }
 
         isLoading.setValue(true);
         String safeVariant = (variant != null && !variant.trim().isEmpty()) ? variant.trim() : "Mặc định";
@@ -253,12 +261,14 @@ public class CartViewModel extends ViewModel {
             public void onSuccess() {
                 isLoading.setValue(false);
                 successMessage.setValue("Đã thêm vào giỏ hàng!");
+                if (callback != null) callback.onSuccess();
             }
 
             @Override
             public void onFailure(String error) {
                 isLoading.setValue(false);
                 errorMessage.setValue(error);
+                if (callback != null) callback.onFailure(error);
             }
         });
     }

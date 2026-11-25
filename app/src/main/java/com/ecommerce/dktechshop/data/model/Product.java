@@ -86,10 +86,75 @@ public class Product implements Serializable {
     public List<ProductVariant> getVariants() {
         if (variants == null || variants.isEmpty()) {
             List<ProductVariant> def = new ArrayList<>();
-            def.add(new ProductVariant("Mặc định", "", 0L));
+            def.add(new ProductVariant("Mặc định", "", 0L, Math.max(0, this.stock)));
             return def;
         }
         return variants;
+    }
+
+    public boolean hasDefinedVariants() {
+        return variants != null && !variants.isEmpty();
+    }
+
+    public boolean hasExplicitVariantStock() {
+        if (variants == null || variants.isEmpty()) return false;
+        for (ProductVariant v : variants) {
+            if (v != null && (v.hasExplicitStock() || v.getStock() > 0)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public ProductVariant findVariantByName(String variantName) {
+        List<ProductVariant> list = getVariants();
+        if (variantName != null && !variantName.trim().isEmpty()) {
+            String target = variantName.trim();
+            for (ProductVariant v : list) {
+                if (v != null && v.getName() != null && v.getName().trim().equalsIgnoreCase(target)) {
+                    return v;
+                }
+            }
+        }
+        return null;
+    }
+
+    public int resolveVariantStock(String variantName) {
+        if (!hasDefinedVariants() || !hasExplicitVariantStock()) {
+            return Math.max(0, this.stock);
+        }
+        ProductVariant matched = findVariantByName(variantName);
+        if (matched != null) {
+            return Math.max(0, matched.getStock());
+        }
+        if (variantName == null || variantName.trim().isEmpty() || "Mặc định".equalsIgnoreCase(variantName.trim())) {
+            return Math.max(0, variants.get(0).getStock());
+        }
+        return 0;
+    }
+
+    public int computeTotalStock() {
+        if (hasDefinedVariants() && hasExplicitVariantStock()) {
+            int sum = 0;
+            for (ProductVariant v : variants) {
+                if (v != null) {
+                    sum += Math.max(0, v.getStock());
+                }
+            }
+            return sum;
+        }
+        return Math.max(0, this.stock);
+    }
+
+    public ProductVariant findFirstAvailableVariant() {
+        List<ProductVariant> list = getVariants();
+        if (list.isEmpty()) return null;
+        for (ProductVariant v : list) {
+            if (v != null && resolveVariantStock(v.getName()) > 0) {
+                return v;
+            }
+        }
+        return list.get(0);
     }
 
     public void setVariants(List<?> rawList) {
@@ -116,7 +181,12 @@ public class Product implements Serializable {
                 if (extraObj instanceof Number) {
                     extra = ((Number) extraObj).longValue();
                 }
-                this.variants.add(new ProductVariant(name, colorHex, extra));
+                Object stockObj = map.get("stock");
+                if (stockObj instanceof Number) {
+                    this.variants.add(new ProductVariant(name, colorHex, extra, ((Number) stockObj).intValue()));
+                } else {
+                    this.variants.add(new ProductVariant(name, colorHex, extra));
+                }
             } else if (item instanceof String) {
                 this.variants.add(new ProductVariant((String) item, "", 0L));
             } else if (item != null) {

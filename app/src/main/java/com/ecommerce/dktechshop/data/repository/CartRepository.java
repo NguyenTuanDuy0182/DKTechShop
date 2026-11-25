@@ -3,6 +3,7 @@ package com.ecommerce.dktechshop.data.repository;
 import androidx.annotation.Nullable;
 
 import com.ecommerce.dktechshop.data.model.CartItem;
+import com.ecommerce.dktechshop.data.model.Product;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.CollectionReference;
@@ -118,13 +119,39 @@ public class CartRepository {
         }
 
         DocumentReference docRef = getCartCollection(uid).document(item.getItemId());
+        String productId = item.getProductId() != null ? item.getProductId().trim() : "";
+        String variantName = item.getVariant() != null ? item.getVariant().trim() : "";
 
         mFirestore.runTransaction(transaction -> {
+            // READ PHASE: đọc cả cart item và product trước khi ghi
             DocumentSnapshot snapshot = transaction.get(docRef);
+            DocumentSnapshot prodSnap = !productId.isEmpty()
+                    ? transaction.get(mFirestore.collection("products").document(productId))
+                    : null;
+
+            int currentQty = 0;
             if (snapshot.exists()) {
                 Long existingQty = snapshot.getLong("quantity");
-                int currentQty = existingQty != null ? existingQty.intValue() : 0;
-                int updatedQty = currentQty + item.getQuantity();
+                currentQty = existingQty != null ? existingQty.intValue() : 0;
+            }
+            int updatedQty = currentQty + item.getQuantity();
+
+            if (prodSnap != null && prodSnap.exists()) {
+                Product p = prodSnap.toObject(Product.class);
+                if (p != null) {
+                    int maxStock = p.resolveVariantStock(variantName);
+                    String label = variantName.isEmpty() ? p.getName() : "màu " + variantName;
+                    if (maxStock <= 0) {
+                        throw new IllegalStateException("Sản phẩm (" + label + ") hiện đã hết hàng");
+                    }
+                    if (updatedQty > maxStock) {
+                        throw new IllegalStateException("Sản phẩm (" + label + ") chỉ còn " + maxStock + " trong kho");
+                    }
+                }
+            }
+
+            // WRITE PHASE
+            if (snapshot.exists()) {
                 transaction.update(docRef, "quantity", updatedQty);
             } else {
                 transaction.set(docRef, item);
@@ -133,12 +160,17 @@ public class CartRepository {
         }).addOnSuccessListener(aVoid -> {
             if (callback != null) callback.onSuccess();
         }).addOnFailureListener(e -> {
-            if (callback != null) callback.onFailure(e.getMessage());
+            String msg = (e != null && e.getMessage() != null) ? e.getMessage() : "Không thể thêm vào giỏ hàng";
+            if (e != null && e.getCause() instanceof IllegalStateException && e.getCause().getMessage() != null) {
+                msg = e.getCause().getMessage();
+            }
+            if (callback != null) callback.onFailure(msg);
         });
     }
 
     /**
      * Cập nhật số lượng item với delta (+1 hoặc -1).
+     * Nếu tăng số lượng sẽ kiểm tra tồn kho theo đúng màu trên Firestore.
      * Nếu số lượng mới <= 0 -> tự động xóa document khỏi giỏ.
      */
     public void updateQuantity(String itemId, int delta, ActionCallback callback) {
@@ -151,6 +183,7 @@ public class CartRepository {
         DocumentReference docRef = getCartCollection(uid).document(itemId);
 
         mFirestore.runTransaction(transaction -> {
+            // READ PHASE
             DocumentSnapshot snapshot = transaction.get(docRef);
             if (!snapshot.exists()) {
                 return false;
@@ -160,6 +193,30 @@ public class CartRepository {
             int currentQty = existingQty != null ? existingQty.intValue() : 1;
             int newQty = currentQty + delta;
 
+            if (delta > 0) {
+                String productId = snapshot.getString("productId");
+                String variantName = snapshot.getString("variant");
+                if (productId != null && !productId.trim().isEmpty()) {
+                    DocumentSnapshot prodSnap = transaction.get(
+                            mFirestore.collection("products").document(productId.trim()));
+                    if (prodSnap.exists()) {
+                        Product p = prodSnap.toObject(Product.class);
+                        if (p != null) {
+                            int maxStock = p.resolveVariantStock(variantName);
+                            String label = (variantName != null && !variantName.trim().isEmpty())
+                                    ? "màu " + variantName.trim() : p.getName();
+                            if (maxStock <= 0) {
+                                throw new IllegalStateException("Sản phẩm (" + label + ") hiện đã hết hàng");
+                            }
+                            if (newQty > maxStock) {
+                                throw new IllegalStateException("Sản phẩm (" + label + ") chỉ còn " + maxStock + " trong kho");
+                            }
+                        }
+                    }
+                }
+            }
+
+            // WRITE PHASE
             if (newQty <= 0) {
                 transaction.delete(docRef);
             } else {
@@ -169,7 +226,11 @@ public class CartRepository {
         }).addOnSuccessListener(result -> {
             if (callback != null) callback.onSuccess();
         }).addOnFailureListener(e -> {
-            if (callback != null) callback.onFailure(e.getMessage());
+            String msg = (e != null && e.getMessage() != null) ? e.getMessage() : "Không thể cập nhật số lượng";
+            if (e != null && e.getCause() instanceof IllegalStateException && e.getCause().getMessage() != null) {
+                msg = e.getCause().getMessage();
+            }
+            if (callback != null) callback.onFailure(msg);
         });
     }
 

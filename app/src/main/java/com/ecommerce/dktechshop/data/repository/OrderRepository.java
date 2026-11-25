@@ -3,12 +3,13 @@ package com.ecommerce.dktechshop.data.repository;
 import com.ecommerce.dktechshop.data.model.CartItem;
 import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.OrderItem;
+import com.ecommerce.dktechshop.data.model.Product;
+import com.ecommerce.dktechshop.data.model.ProductVariant;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.EventListener;
-import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
@@ -18,9 +19,9 @@ import com.google.firebase.firestore.WriteBatch;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -58,11 +59,24 @@ public class OrderRepository {
         this.mFirestore = FirebaseFirestore.getInstance();
     }
 
+    public static class StockUpdateResult {
+        public final List<Map<String, Object>> serializedVariants;
+        public final int totalStock;
+        public final boolean hasVariants;
+
+        public StockUpdateResult(List<Map<String, Object>> serializedVariants, int totalStock, boolean hasVariants) {
+            this.serializedVariants = serializedVariants;
+            this.totalStock = totalStock;
+            this.hasVariants = hasVariants;
+        }
+    }
+
     /**
-     * Triển khai đặt hàng an toàn bằng Firestore WriteBatch:
-     * 1. Tạo document mới trong collection orders (và users/{uid}/orders).
-     * 2. Giảm số lượng tồn kho stock tương ứng tại collection products.
-     * 3. Xóa sạch các món đã đặt trong subcollection users/{uid}/cart.
+     * Triển khai đặt hàng nguyên tử bằng Firestore Transaction:
+     * 1. Đọc toàn bộ sản phẩm liên quan và kiểm tra đủ tồn kho theo từng màu/biến thể.
+     * 2. Trừ tồn kho đúng từng màu trong variants và cập nhật lại tổng stock.
+     * 3. Tạo document đơn hàng trong orders/{orderId} & users/{uid}/orders/{orderId}.
+     * 4. Xóa các món đã đặt khỏi subcollection users/{uid}/cart.
      */
     public void placeOrderWithBatch(Order order, List<CartItem> cartItems, OrderCallback callback) {
         FirebaseUser user = mAuth.getCurrentUser();
@@ -91,46 +105,70 @@ public class OrderRepository {
             order.setOrderId("TG-2026-" + (1000 + (int) (Math.random() * 9000)));
         }
 
-        WriteBatch batch = mFirestore.batch();
-
-        // 1. Tạo document mới trong collection orders
+        Map<String, Map<String, Integer>> variantDeductions = aggregateCartItemVariantQuantities(cartItems);
         DocumentReference rootOrderRef = mFirestore.collection("orders").document(order.getOrderId());
-        batch.set(rootOrderRef, order);
-
         DocumentReference userOrderRef = mFirestore.collection("users")
                 .document(uid)
                 .collection("orders")
                 .document(order.getOrderId());
-        batch.set(userOrderRef, order);
 
-        // 2. Giảm số lượng tồn kho stock tương ứng tại collection products (gộp theo productId nếu mua nhiều phân loại)
-        Map<String, Long> decrementMap = aggregateCartItemQuantities(cartItems);
-        for (Map.Entry<String, Long> entry : decrementMap.entrySet()) {
-            DocumentReference productDocRef = mFirestore.collection("products").document(entry.getKey());
-            Map<String, Object> stockUpdate = new HashMap<>();
-            stockUpdate.put("stock", FieldValue.increment(-entry.getValue()));
-            batch.set(productDocRef, stockUpdate, SetOptions.merge());
-        }
+        mFirestore.runTransaction(transaction -> {
+            // 1. READ PHASE: Đọc tất cả product docs trước khi thực hiện bất kỳ thao tác ghi nào
+            Map<String, StockUpdateResult> stockUpdates = new LinkedHashMap<>();
+            for (Map.Entry<String, Map<String, Integer>> entry : variantDeductions.entrySet()) {
+                String productId = entry.getKey();
+                DocumentReference productDocRef = mFirestore.collection("products").document(productId);
+                DocumentSnapshot productSnap = transaction.get(productDocRef);
+                if (!productSnap.exists()) {
+                    throw new IllegalStateException("Sản phẩm không còn tồn tại trong hệ thống");
+                }
+                Product product = productSnap.toObject(Product.class);
+                if (product == null) {
+                    throw new IllegalStateException("Không thể đọc thông tin tồn kho sản phẩm");
+                }
+                if (product.getId() == null || product.getId().isEmpty()) {
+                    product.setId(productSnap.getId());
+                }
 
-        // 3. Xóa sạch các món đã đặt trong subcollection users/{uid}/cart
-        for (CartItem item : cartItems) {
-            if (item.getItemId() != null && !item.getItemId().trim().isEmpty()) {
-                DocumentReference cartItemDocRef = mFirestore.collection("users")
-                    .document(uid)
-                    .collection("cart")
-                    .document(item.getItemId());
-                batch.delete(cartItemDocRef);
+                Map<String, Integer> negativeDeltas = new LinkedHashMap<>();
+                for (Map.Entry<String, Integer> varEntry : entry.getValue().entrySet()) {
+                    negativeDeltas.put(varEntry.getKey(), -varEntry.getValue());
+                }
+                stockUpdates.put(productId, applyVariantStockDeltas(product, negativeDeltas, true));
             }
-        }
 
-        // Thực thi Batch Write
-        batch.commit()
-                .addOnSuccessListener(aVoid -> {
-                    if (callback != null) callback.onSuccess(order);
-                })
-                .addOnFailureListener(e -> {
-                    if (callback != null) callback.onFailure("Lỗi lưu đơn hàng: " + e.getMessage());
-                });
+            // 2. WRITE PHASE: Tạo đơn hàng, cập nhật tồn kho theo từng màu và xóa item đã mua khỏi giỏ
+            transaction.set(rootOrderRef, order);
+            transaction.set(userOrderRef, order);
+
+            for (Map.Entry<String, StockUpdateResult> entry : stockUpdates.entrySet()) {
+                DocumentReference productDocRef = mFirestore.collection("products").document(entry.getKey());
+                StockUpdateResult result = entry.getValue();
+                Map<String, Object> stockUpdate = new HashMap<>();
+                stockUpdate.put("stock", result.totalStock);
+                if (result.hasVariants && result.serializedVariants != null) {
+                    stockUpdate.put("variants", result.serializedVariants);
+                }
+                transaction.set(productDocRef, stockUpdate, SetOptions.merge());
+            }
+
+            for (CartItem item : cartItems) {
+                if (item.getItemId() != null && !item.getItemId().trim().isEmpty()) {
+                    DocumentReference cartItemDocRef = mFirestore.collection("users")
+                            .document(uid)
+                            .collection("cart")
+                            .document(item.getItemId());
+                    transaction.delete(cartItemDocRef);
+                }
+            }
+
+            return order;
+        }).addOnSuccessListener(savedOrder -> {
+            if (callback != null) callback.onSuccess(savedOrder);
+        }).addOnFailureListener(e -> {
+            String msg = extractReadableError(e, "Lỗi lưu đơn hàng");
+            if (callback != null) callback.onFailure(msg);
+        });
     }
 
     /**
@@ -298,9 +336,144 @@ public class OrderRepository {
         return totals;
     }
 
+    public static Map<String, Map<String, Integer>> aggregateCartItemVariantQuantities(List<CartItem> items) {
+        Map<String, Map<String, Integer>> result = new LinkedHashMap<>();
+        if (items == null) return result;
+        for (CartItem item : items) {
+            if (item != null && item.getProductId() != null && !item.getProductId().trim().isEmpty() && item.getQuantity() > 0) {
+                String pid = item.getProductId().trim();
+                String variant = item.getVariant() != null ? item.getVariant().trim() : "";
+                Map<String, Integer> variantMap = result.computeIfAbsent(pid, k -> new LinkedHashMap<>());
+                variantMap.put(variant, variantMap.getOrDefault(variant, 0) + item.getQuantity());
+            }
+        }
+        return result;
+    }
+
+    public static Map<String, Map<String, Integer>> aggregateOrderItemVariantQuantities(List<OrderItem> items) {
+        Map<String, Map<String, Integer>> result = new LinkedHashMap<>();
+        if (items == null) return result;
+        for (OrderItem item : items) {
+            if (item != null && item.getProductId() != null && !item.getProductId().trim().isEmpty() && item.getQuantity() > 0) {
+                String pid = item.getProductId().trim();
+                String variant = item.getVariant() != null ? item.getVariant().trim() : "";
+                Map<String, Integer> variantMap = result.computeIfAbsent(pid, k -> new LinkedHashMap<>());
+                variantMap.put(variant, variantMap.getOrDefault(variant, 0) + item.getQuantity());
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Tính toán cập nhật tồn kho theo từng màu/biến thể và tổng stock.
+     * - delta < 0: trừ kho khi đặt hàng (khi requireSufficientStock = true sẽ báo lỗi nếu màu đó không đủ hàng).
+     * - delta > 0: hoàn kho về đúng màu tương ứng khi hủy đơn hàng.
+     */
+    public static StockUpdateResult applyVariantStockDeltas(Product product,
+                                                            Map<String, Integer> variantDeltas,
+                                                            boolean requireSufficientStock) {
+        if (product == null) {
+            throw new IllegalArgumentException("Sản phẩm không hợp lệ");
+        }
+        String productName = (product.getName() != null && !product.getName().trim().isEmpty())
+                ? product.getName().trim() : "sản phẩm";
+
+        if (product.hasDefinedVariants() && product.hasExplicitVariantStock()) {
+            List<ProductVariant> copied = new ArrayList<>();
+            for (ProductVariant v : product.getVariants()) {
+                if (v != null) {
+                    copied.add(new ProductVariant(v.getName(), v.getColorHex(), v.getExtraPrice(), v.getStock()));
+                }
+            }
+
+            if (variantDeltas != null) {
+                for (Map.Entry<String, Integer> entry : variantDeltas.entrySet()) {
+                    int delta = entry.getValue() != null ? entry.getValue() : 0;
+                    if (delta == 0) continue;
+
+                    String requestedVariant = entry.getKey() != null ? entry.getKey().trim() : "";
+                    ProductVariant matched = null;
+                    for (ProductVariant v : copied) {
+                        if (v.getName() != null && v.getName().trim().equalsIgnoreCase(requestedVariant)) {
+                            matched = v;
+                            break;
+                        }
+                    }
+
+                    if (matched == null && !copied.isEmpty()
+                            && (requestedVariant.isEmpty()
+                            || "Mặc định".equalsIgnoreCase(requestedVariant)
+                            || !requireSufficientStock)) {
+                        matched = copied.get(0);
+                    }
+
+                    if (matched == null) {
+                        throw new IllegalStateException("Phân loại \"" + requestedVariant + "\" của " + productName + " không còn tồn tại");
+                    }
+
+                    int currentStock = Math.max(0, matched.getStock());
+                    int updatedStock = currentStock + delta;
+                    if (requireSufficientStock && updatedStock < 0) {
+                        if (currentStock <= 0) {
+                            throw new IllegalStateException("Sản phẩm " + productName + " (" + matched.getName() + ") hiện đã hết hàng");
+                        }
+                        throw new IllegalStateException("Sản phẩm " + productName + " (" + matched.getName() + ") chỉ còn " + currentStock + " sản phẩm trong kho");
+                    }
+                    matched.setStock(Math.max(0, updatedStock));
+                }
+            }
+
+            int totalStock = 0;
+            List<Map<String, Object>> serialized = new ArrayList<>();
+            for (ProductVariant v : copied) {
+                int safeStock = Math.max(0, v.getStock());
+                totalStock += safeStock;
+                Map<String, Object> map = new HashMap<>();
+                map.put("name", v.getName());
+                map.put("colorHex", v.getColorHex());
+                map.put("extraPrice", v.getExtraPrice());
+                map.put("stock", safeStock);
+                serialized.add(map);
+            }
+            return new StockUpdateResult(serialized, totalStock, true);
+        }
+
+        int totalDelta = 0;
+        if (variantDeltas != null) {
+            for (Integer d : variantDeltas.values()) {
+                if (d != null) totalDelta += d;
+            }
+        }
+        int currentStock = Math.max(0, product.getStock());
+        int updatedStock = currentStock + totalDelta;
+        if (requireSufficientStock && updatedStock < 0) {
+            if (currentStock <= 0) {
+                throw new IllegalStateException("Sản phẩm " + productName + " hiện đã hết hàng");
+            }
+            throw new IllegalStateException("Sản phẩm " + productName + " chỉ còn " + currentStock + " sản phẩm trong kho");
+        }
+        return new StockUpdateResult(null, Math.max(0, updatedStock), false);
+    }
+
+    private static String extractReadableError(Exception e, String fallbackPrefix) {
+        if (e == null) return fallbackPrefix;
+        if (e instanceof IllegalStateException && e.getMessage() != null && !e.getMessage().trim().isEmpty()) {
+            return e.getMessage();
+        }
+        if (e.getCause() instanceof IllegalStateException
+                && e.getCause().getMessage() != null
+                && !e.getCause().getMessage().trim().isEmpty()) {
+            return e.getCause().getMessage();
+        }
+        if (e.getMessage() != null && !e.getMessage().trim().isEmpty()) {
+            return fallbackPrefix + ": " + e.getMessage();
+        }
+        return fallbackPrefix;
+    }
+
     /**
      * Cập nhật trạng thái đơn hàng (Đang xử lý -> Đang giao -> Đã giao / Hoàn thành -> Đã hủy).
-     * Khi hủy đơn sẽ dùng Firestore Transaction để hoàn trả tồn kho (stock) an toàn, tránh cộng trùng.
+     * Khi hủy đơn sẽ dùng Firestore Transaction để hoàn trả tồn kho (stock) theo đúng màu an toàn, tránh cộng trùng.
      */
     public void updateOrderStatus(String orderId, String newStatus, ActionCallback callback) {
         if (newStatus != null && "Đã hủy".equalsIgnoreCase(newStatus.trim())) {
@@ -336,9 +509,10 @@ public class OrderRepository {
 
     /**
      * Hủy đơn hàng nguyên tử bằng Firestore Transaction:
-     * 1. Kiểm tra trạng thái hiện tại chưa bị hủy và chưa giao.
-     * 2. Cập nhật status = "Đã hủy" ở cả orders/{orderId} và users/{uid}/orders/{orderId}.
-     * 3. Hoàn trả lại số lượng tồn kho (stock) tương ứng cho từng sản phẩm trong products/{productId}.
+     * 1. Đọc đơn hàng và kiểm tra trạng thái chưa bị hủy và chưa giao.
+     * 2. Đọc tất cả products/{productId} liên quan (tất cả lệnh đọc trước lệnh ghi).
+     * 3. Hoàn trả tồn kho về đúng từng màu trong variants và cập nhật lại tổng stock.
+     * 4. Cập nhật status = "Đã hủy" ở cả orders/{orderId} và users/{uid}/orders/{orderId}.
      */
     private void cancelOrderWithStockRestore(String orderId, ActionCallback callback) {
         if (orderId == null || orderId.trim().isEmpty()) {
@@ -351,6 +525,7 @@ public class OrderRepository {
         DocumentReference rootOrderRef = mFirestore.collection("orders").document(orderId);
 
         mFirestore.runTransaction(transaction -> {
+            // 1. READ PHASE: Đọc đơn hàng
             DocumentSnapshot snapshot = transaction.get(rootOrderRef);
             if (!snapshot.exists() && !uid.isEmpty()) {
                 DocumentReference userOrderRef = mFirestore.collection("users")
@@ -375,6 +550,27 @@ public class OrderRepository {
                 throw new IllegalStateException("Không thể hủy đơn hàng đã giao");
             }
 
+            // 2. READ PHASE: Đọc tất cả sản phẩm cần hoàn kho trước khi ghi
+            Map<String, StockUpdateResult> stockRestores = new LinkedHashMap<>();
+            if (existing != null && existing.getItems() != null) {
+                Map<String, Map<String, Integer>> restoreMap = aggregateOrderItemVariantQuantities(existing.getItems());
+                for (Map.Entry<String, Map<String, Integer>> entry : restoreMap.entrySet()) {
+                    String productId = entry.getKey();
+                    DocumentReference productDocRef = mFirestore.collection("products").document(productId);
+                    DocumentSnapshot prodSnap = transaction.get(productDocRef);
+                    if (prodSnap.exists()) {
+                        Product product = prodSnap.toObject(Product.class);
+                        if (product != null) {
+                            if (product.getId() == null || product.getId().isEmpty()) {
+                                product.setId(prodSnap.getId());
+                            }
+                            stockRestores.put(productId, applyVariantStockDeltas(product, entry.getValue(), false));
+                        }
+                    }
+                }
+            }
+
+            // 3. WRITE PHASE: Cập nhật trạng thái đơn và hoàn trả tồn kho đúng từng màu
             Map<String, Object> update = new HashMap<>();
             update.put("status", "Đã hủy");
             transaction.set(rootOrderRef, update, SetOptions.merge());
@@ -389,20 +585,21 @@ public class OrderRepository {
                 transaction.set(userOrderRef, update, SetOptions.merge());
             }
 
-            if (existing != null && existing.getItems() != null) {
-                Map<String, Long> restoreMap = aggregateOrderItemQuantities(existing.getItems());
-                for (Map.Entry<String, Long> entry : restoreMap.entrySet()) {
-                    DocumentReference productDocRef = mFirestore.collection("products").document(entry.getKey());
-                    Map<String, Object> stockRestore = new HashMap<>();
-                    stockRestore.put("stock", FieldValue.increment(entry.getValue()));
-                    transaction.set(productDocRef, stockRestore, SetOptions.merge());
+            for (Map.Entry<String, StockUpdateResult> entry : stockRestores.entrySet()) {
+                DocumentReference productDocRef = mFirestore.collection("products").document(entry.getKey());
+                StockUpdateResult result = entry.getValue();
+                Map<String, Object> stockRestore = new HashMap<>();
+                stockRestore.put("stock", result.totalStock);
+                if (result.hasVariants && result.serializedVariants != null) {
+                    stockRestore.put("variants", result.serializedVariants);
                 }
+                transaction.set(productDocRef, stockRestore, SetOptions.merge());
             }
             return null;
         }).addOnSuccessListener(aVoid -> {
             if (callback != null) callback.onSuccess();
         }).addOnFailureListener(e -> {
-            String msg = (e != null && e.getMessage() != null) ? e.getMessage() : "Lỗi hủy đơn hàng";
+            String msg = extractReadableError(e, "Lỗi hủy đơn hàng");
             if (callback != null) callback.onFailure(msg);
         });
     }

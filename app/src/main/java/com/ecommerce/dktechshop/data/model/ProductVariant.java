@@ -6,6 +6,8 @@ public class ProductVariant implements Serializable {
     private String name = "";
     private String colorHex = "";
     private long extraPrice = 0L;
+    private int stock = 0;
+    private boolean explicitStock = false;
 
     public ProductVariant() {}
 
@@ -13,6 +15,16 @@ public class ProductVariant implements Serializable {
         this.name = name != null ? name : "";
         this.colorHex = colorHex != null ? colorHex : "";
         this.extraPrice = extraPrice;
+        this.stock = 0;
+        this.explicitStock = false;
+    }
+
+    public ProductVariant(String name, String colorHex, long extraPrice, int stock) {
+        this.name = name != null ? name : "";
+        this.colorHex = colorHex != null ? colorHex : "";
+        this.extraPrice = extraPrice;
+        this.stock = Math.max(0, stock);
+        this.explicitStock = true;
     }
 
     public String getName() {
@@ -20,7 +32,7 @@ public class ProductVariant implements Serializable {
     }
 
     public void setName(String name) {
-        this.name = name;
+        this.name = name != null ? name : "";
     }
 
     public String getColorHex() {
@@ -28,7 +40,7 @@ public class ProductVariant implements Serializable {
     }
 
     public void setColorHex(String colorHex) {
-        this.colorHex = colorHex;
+        this.colorHex = colorHex != null ? colorHex : "";
     }
 
     public long getExtraPrice() {
@@ -37,5 +49,18 @@ public class ProductVariant implements Serializable {
 
     public void setExtraPrice(long extraPrice) {
         this.extraPrice = extraPrice;
+    }
+
+    public int getStock() {
+        return stock;
+    }
+
+    public void setStock(int stock) {
+        this.stock = Math.max(0, stock);
+        this.explicitStock = true;
+    }
+
+    public boolean hasExplicitStock() {
+        return explicitStock;
     }
 }

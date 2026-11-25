@@ -13,6 +13,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
@@ -24,6 +25,7 @@ import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.model.ProductVariant;
 import com.ecommerce.dktechshop.data.model.Review;
+import com.ecommerce.dktechshop.data.repository.CartRepository;
 import com.ecommerce.dktechshop.data.repository.ProductRepository;
 import com.ecommerce.dktechshop.ui.cart.CartViewModel;
 import com.ecommerce.dktechshop.ui.viewmodel.ShopViewModel;
@@ -51,6 +53,7 @@ public class ProductDetailActivity extends AppCompatActivity {
     private SwipeRefreshLayout swipeRefresh;
     private TextView tvReviewsEmpty;
     private LinearLayout layoutReviewsListContainer;
+    private String loadedReviewsProductId = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +62,18 @@ public class ProductDetailActivity extends AppCompatActivity {
 
         shopViewModel = new ViewModelProvider(this).get(ShopViewModel.class);
         cartViewModel = new ViewModelProvider(this).get(CartViewModel.class);
+        tvCartBadge = findViewById(R.id.tv_detail_cart_badge);
+
+        cartViewModel.getCartCount().observe(this, count -> {
+            if (tvCartBadge != null) {
+                if (count != null && count > 0) {
+                    tvCartBadge.setVisibility(View.VISIBLE);
+                    tvCartBadge.setText(String.valueOf(count));
+                } else {
+                    tvCartBadge.setVisibility(View.GONE);
+                }
+            }
+        });
 
         swipeRefresh = findViewById(R.id.swipe_refresh_product_detail);
         Runnable reloadProduct = () -> {
@@ -114,11 +129,23 @@ public class ProductDetailActivity extends AppCompatActivity {
 
         if (extraProduct != null) {
             shopViewModel.setSelectedProduct(extraProduct);
+            if (extraProduct.getId() != null && !extraProduct.getId().trim().isEmpty() && NetworkMonitor.isConnected(this)) {
+                shopViewModel.loadProductById(extraProduct.getId());
+            }
         } else {
             String productId = getIntent().getStringExtra(EXTRA_PRODUCT_ID);
             if (productId != null) {
                 shopViewModel.loadProductById(productId);
             }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (product != null && product.getId() != null && !product.getId().trim().isEmpty()
+                && NetworkMonitor.isConnected(this)) {
+            shopViewModel.loadProductById(product.getId());
         }
     }
 
@@ -162,7 +189,14 @@ public class ProductDetailActivity extends AppCompatActivity {
                 layoutRating.setVisibility(View.GONE);
             }
         }
-        tvStock.setText("Còn sẵn " + product.getStock() + " thiết bị tại kho");
+        int totalStock = product.computeTotalStock();
+        if (totalStock > 0) {
+            tvStock.setText("Còn sẵn " + totalStock + " thiết bị tại kho");
+            tvStock.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_onSurfaceVariant));
+        } else {
+            tvStock.setText("Tạm hết hàng");
+            tvStock.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_error));
+        }
         tvPrice.setText(CurrencyUtils.formatVND(product.getPrice()));
         if (product.getOriginalPrice() > product.getPrice() && product.getDiscountPercent() > 0) {
             tvOriginalPrice.setVisibility(View.VISIBLE);
@@ -190,17 +224,6 @@ public class ProductDetailActivity extends AppCompatActivity {
             }
         }
 
-        cartViewModel.getCartCount().observe(this, count -> {
-            if (tvCartBadge != null) {
-                if (count != null && count > 0) {
-                    tvCartBadge.setVisibility(View.VISIBLE);
-                    tvCartBadge.setText(String.valueOf(count));
-                } else {
-                    tvCartBadge.setVisibility(View.GONE);
-                }
-            }
-        });
-
         btnBack.setOnClickListener(v -> finish());
 
         btnCart.setOnClickListener(v -> {
@@ -219,9 +242,13 @@ public class ProductDetailActivity extends AppCompatActivity {
 
         for (ProductVariant v : product.getVariants()) {
             Chip chip = new Chip(this);
+            int varStock = product.resolveVariantStock(v.getName());
             String title = v.getName();
             if (v.getExtraPrice() > 0) {
                 title += " (+" + CurrencyUtils.formatVND(v.getExtraPrice()) + ")";
+            }
+            if (product.hasExplicitVariantStock()) {
+                title += (varStock > 0) ? (" • Còn " + varStock) : " • Hết hàng";
             }
             chip.setText(title);
             chip.setCheckable(false);
@@ -229,6 +256,7 @@ public class ProductDetailActivity extends AppCompatActivity {
             chip.setChipStrokeColor(ColorStateList.valueOf(primaryColor));
             chip.setChipStrokeWidth(strokeWidthPx);
             chip.setTextColor(onSurfaceColor);
+            chip.setAlpha(product.hasExplicitVariantStock() && varStock <= 0 ? 0.6f : 1.0f);
 
             if (v.getColorHex() != null && !v.getColorHex().trim().isEmpty()) {
                 try {
@@ -243,7 +271,7 @@ public class ProductDetailActivity extends AppCompatActivity {
                 } catch (Exception ignored) {}
             }
 
-            chip.setOnClickListener(view -> openVariantSheet(false));
+            chip.setOnClickListener(view -> openVariantSheet(false, v));
             chipGroupVariants.addView(chip);
         }
 
@@ -257,6 +285,7 @@ public class ProductDetailActivity extends AppCompatActivity {
         warrantyInfo.put("Địa điểm bảo hành", "Trung tâm DKTechShop & TTBH ủy quyền");
         populateTable(layoutWarrantyContainer, warrantyInfo);
 
+        tabLayoutDetails.clearOnTabSelectedListeners();
         tabLayoutDetails.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
@@ -272,8 +301,12 @@ public class ProductDetailActivity extends AppCompatActivity {
             public void onTabReselected(TabLayout.Tab tab) {}
         });
 
-        btnAddToCart.setOnClickListener(v -> openVariantSheet(false));
-        btnBuyNow.setOnClickListener(v -> openVariantSheet(true));
+        boolean inStock = totalStock > 0;
+        btnAddToCart.setEnabled(inStock);
+        btnBuyNow.setEnabled(inStock);
+        btnBuyNow.setText(inStock ? "Mua ngay" : "Hết hàng");
+        btnAddToCart.setOnClickListener(v -> openVariantSheet(false, null));
+        btnBuyNow.setOnClickListener(v -> openVariantSheet(true, null));
 
         // Thiết lập khu vực Đánh giá từ khách hàng
         TextView tvReviewsSummaryRating = findViewById(R.id.tv_reviews_summary_rating);
@@ -336,28 +369,44 @@ public class ProductDetailActivity extends AppCompatActivity {
             });
         }
 
-        shopViewModel.loadReviews(product.getId());
+        if (product.getId() != null && !product.getId().equals(loadedReviewsProductId)) {
+            loadedReviewsProductId = product.getId();
+            shopViewModel.loadReviews(product.getId());
+        }
     }
 
-    private void openVariantSheet(boolean isBuyNow) {
+    private void openVariantSheet(boolean isBuyNow, @Nullable ProductVariant initialVariant) {
         if (product == null) return;
-        ProductVariantBottomSheetDialog sheet = new ProductVariantBottomSheetDialog(product, isBuyNow,
+        ProductVariantBottomSheetDialog sheet = new ProductVariantBottomSheetDialog(product, isBuyNow, initialVariant,
                 (p, variant, qty, buyNow) -> {
                     if (!NetworkMonitor.isConnected(this)) {
                         Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
                         return;
                     }
                     String variantName = variant != null ? variant.getName() : "";
-                    cartViewModel.addToCart(p, variantName, qty);
-                    if (buyNow) {
-                        Intent intent = new Intent(this, MainActivity.class);
-                        intent.putExtra("navigate_tab", R.id.nav_cart);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                        startActivity(intent);
-                        finish();
-                    } else {
-                        Toast.makeText(this, "Đã thêm " + qty + " sản phẩm (" + variantName + ") vào giỏ!", Toast.LENGTH_SHORT).show();
-                    }
+                    cartViewModel.addToCart(p, variantName, qty, new CartRepository.ActionCallback() {
+                        @Override
+                        public void onSuccess() {
+                            if (buyNow) {
+                                Intent intent = new Intent(ProductDetailActivity.this, MainActivity.class);
+                                intent.putExtra("navigate_tab", R.id.nav_cart);
+                                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                                startActivity(intent);
+                                finish();
+                            } else {
+                                Toast.makeText(ProductDetailActivity.this,
+                                        "Đã thêm " + qty + " sản phẩm (" + variantName + ") vào giỏ!",
+                                        Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(String error) {
+                            Toast.makeText(ProductDetailActivity.this,
+                                    error != null ? error : "Không thể thêm vào giỏ hàng",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    });
                 });
         sheet.show(getSupportFragmentManager(), "variant_sheet");
     }

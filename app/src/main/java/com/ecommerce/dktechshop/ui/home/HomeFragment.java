@@ -20,8 +20,10 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
+import com.ecommerce.dktechshop.data.model.ProductVariant;
 import com.ecommerce.dktechshop.data.model.User;
 import com.ecommerce.dktechshop.data.repository.AuthRepository;
+import com.ecommerce.dktechshop.data.repository.CartRepository;
 import com.ecommerce.dktechshop.ui.auth.AuthViewModel;
 import com.ecommerce.dktechshop.ui.cart.CartViewModel;
 import com.ecommerce.dktechshop.ui.detail.ProductDetailActivity;
@@ -148,12 +150,33 @@ public class HomeFragment extends Fragment {
                     Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
                     return;
                 }
-                String variant = (product.getVariants() != null && !product.getVariants().isEmpty())
-                        ? product.getVariants().get(0).getName()
+                if (product.computeTotalStock() <= 0) {
+                    Toast.makeText(requireContext(), "Sản phẩm hiện đã hết hàng", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                ProductVariant available = product.findFirstAvailableVariant();
+                String variant = (available != null && available.getName() != null && !available.getName().isEmpty())
+                        ? available.getName()
                         : "Mặc định";
-                cartViewModel.addToCart(product, variant, 1);
-                Toast.makeText(requireContext(), "Đã thêm " + product.getName() + " vào giỏ!", Toast.LENGTH_SHORT)
-                        .show();
+                cartViewModel.addToCart(product, variant, 1, new CartRepository.ActionCallback() {
+                    @Override
+                    public void onSuccess() {
+                        if (isAdded()) {
+                            Toast.makeText(requireContext(),
+                                    "Đã thêm " + product.getName() + " (" + variant + ") vào giỏ!",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        if (isAdded()) {
+                            Toast.makeText(requireContext(),
+                                    error != null ? error : "Không thể thêm vào giỏ hàng",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
             }
         });
 
