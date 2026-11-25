@@ -494,8 +494,6 @@
                 android:layout_height="48dp"
                 android:layout_weight="1.3"
                 android:layout_marginStart="6dp"
-                app:icon="@drawable/ic_bolt"
-                app:iconSize="18dp"
                 android:text="Mua ngay"
                 android:textSize="13sp"
                 android:textStyle="bold"

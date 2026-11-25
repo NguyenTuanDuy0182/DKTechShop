@@ -167,7 +167,7 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
             String action = isBuyNow ? "Mua ngay" : "Thêm vào giỏ";
             btnConfirm.setText(action + " • " + CurrencyUtils.formatVND(total));
             if (isBuyNow) {
-                btnConfirm.setIconResource(R.drawable.ic_bolt);
+                btnConfirm.setIcon(null);
             } else {
                 btnConfirm.setIconResource(R.drawable.ic_shopping_cart);
             }

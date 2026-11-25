@@ -181,8 +181,13 @@ public class CartFragment extends Fragment {
 
             ShippingInfo shipping = resolveShippingInfo();
             if (shipping.address == null || shipping.address.getDetail() == null || shipping.address.getDetail().trim().isEmpty()) {
-                Toast.makeText(requireContext(), "Vui lòng thêm địa chỉ giao hàng trước khi đặt hàng", Toast.LENGTH_SHORT).show();
-                showAddAddressDialog();
+                Toast.makeText(requireContext(), "Vui lòng thêm địa chỉ và số điện thoại nhận hàng", Toast.LENGTH_SHORT).show();
+                showAddressDialog(null);
+                return;
+            }
+            if (!CartViewModel.isValidPhone(shipping.phone)) {
+                Toast.makeText(requireContext(), "Vui lòng cập nhật số điện thoại nhận hàng trước khi đặt hàng", Toast.LENGTH_SHORT).show();
+                showAddressDialog(shipping.address);
                 return;
             }
 
@@ -380,13 +385,14 @@ public class CartFragment extends Fragment {
 
         btnAddNew.setOnClickListener(v -> {
             dialog.dismiss();
-            showAddAddressDialog();
+            showAddressDialog(null);
         });
 
         dialog.show();
     }
 
-    private void showAddAddressDialog() {
+    private void showAddressDialog(@Nullable Address addrToEdit) {
+        boolean isEdit = addrToEdit != null && addrToEdit.getId() != null && !addrToEdit.getId().trim().isEmpty();
         View dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_address, null);
         TextView tvTitle = dialogView.findViewById(R.id.tv_dialog_address_title);
         TextView tvSubtitle = dialogView.findViewById(R.id.tv_dialog_address_subtitle);
@@ -396,13 +402,24 @@ public class CartFragment extends Fragment {
         MaterialButton btnCancel = dialogView.findViewById(R.id.btn_dialog_cancel);
         MaterialButton btnSave = dialogView.findViewById(R.id.btn_dialog_save);
 
-        tvTitle.setText("Thêm địa chỉ giao hàng");
-        tvSubtitle.setText("Nhập thông tin giao hàng mới của bạn");
-        btnSave.setText("Lưu địa chỉ");
-
-        User u = authViewModel.getCurrentUser().getValue();
-        if (u != null && u.getPhone() != null) {
-            etPhone.setText(u.getPhone().trim());
+        if (addrToEdit != null) {
+            tvTitle.setText("Cập nhật thông tin giao hàng");
+            tvSubtitle.setText("Vui lòng bổ sung đầy đủ số điện thoại và địa chỉ");
+            btnSave.setText("Lưu thông tin");
+            etLabel.setText(addrToEdit.getLabel());
+            etPhone.setText(addrToEdit.getPhone());
+            etDetail.setText(addrToEdit.getDetail());
+            if (addrToEdit.getPhone() == null || addrToEdit.getPhone().trim().isEmpty()) {
+                etPhone.requestFocus();
+            }
+        } else {
+            tvTitle.setText("Thêm địa chỉ giao hàng");
+            tvSubtitle.setText("Nhập thông tin giao hàng mới của bạn");
+            btnSave.setText("Lưu địa chỉ");
+            User u = authViewModel.getCurrentUser().getValue();
+            if (u != null && u.getPhone() != null) {
+                etPhone.setText(u.getPhone().trim());
+            }
         }
 
         AlertDialog dialog = new AlertDialog.Builder(requireContext())
@@ -423,19 +440,36 @@ public class CartFragment extends Fragment {
             String phone = etPhone.getText() != null ? etPhone.getText().toString().trim() : "";
             String detail = etDetail.getText() != null ? etDetail.getText().toString().trim() : "";
 
+            if (!CartViewModel.isValidPhone(phone)) {
+                Toast.makeText(requireContext(), "Vui lòng nhập số điện thoại hợp lệ (10-11 chữ số)", Toast.LENGTH_SHORT).show();
+                return;
+            }
             if (detail.isEmpty()) {
                 Toast.makeText(requireContext(), "Vui lòng nhập địa chỉ chi tiết", Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (label.isEmpty()) label = "Địa chỉ mới";
+            if (label.isEmpty()) label = isEdit ? "Địa chỉ" : "Địa chỉ mới";
 
-            List<Address> current = authViewModel.getAddresses().getValue();
-            previousAddressCount = current != null ? current.size() : 0;
-            selectNewestAddressOnUpdate = true;
-            selectedShippingAddress = new Address("", label, detail, phone, false);
-            updateAddressUI();
+            // Đồng bộ luôn SĐT vào hồ sơ User nếu tài khoản (VD: Google) chưa có SĐT chính
+            User u = authViewModel.getCurrentUser().getValue();
+            if (u != null && !CartViewModel.isValidPhone(u.getPhone())) {
+                String safeName = (u.getName() != null && !u.getName().trim().isEmpty()) ? u.getName().trim() : "Người dùng";
+                authViewModel.updateDisplayName(safeName, phone);
+            }
 
-            authViewModel.addAddress(label, detail, phone);
+            if (isEdit) {
+                Address updated = new Address(addrToEdit.getId(), label, detail, phone, addrToEdit.isDefault());
+                selectedShippingAddress = updated;
+                updateAddressUI();
+                authViewModel.updateAddress(updated);
+            } else {
+                List<Address> current = authViewModel.getAddresses().getValue();
+                previousAddressCount = current != null ? current.size() : 0;
+                selectNewestAddressOnUpdate = true;
+                selectedShippingAddress = new Address("", label, detail, phone, false);
+                updateAddressUI();
+                authViewModel.addAddress(label, detail, phone);
+            }
             dialog.dismiss();
         });
 
@@ -596,7 +630,7 @@ public class CartFragment extends Fragment {
             String labelPrefix = (shipping.address != null && shipping.address.getLabel() != null && !shipping.address.getLabel().trim().isEmpty())
                     ? "[" + shipping.address.getLabel().trim() + "] "
                     : "";
-            tvUserInfo.setText(shipping.name + (!shipping.phone.isEmpty() ? " • " + shipping.phone : ""));
+            tvUserInfo.setText(shipping.name + (!shipping.phone.isEmpty() ? " • " + shipping.phone : " • Chưa có SĐT"));
             if (shipping.address != null && shipping.address.getDetail() != null && !shipping.address.getDetail().trim().isEmpty()) {
                 tvAddressDetail.setText(labelPrefix + shipping.address.getDetail().trim());
             } else {

@@ -28,6 +28,7 @@ import com.ecommerce.dktechshop.data.model.Address;
 import com.ecommerce.dktechshop.data.model.User;
 import com.ecommerce.dktechshop.ui.auth.AuthActivity;
 import com.ecommerce.dktechshop.ui.auth.AuthViewModel;
+import com.ecommerce.dktechshop.ui.cart.CartViewModel;
 import com.ecommerce.dktechshop.utils.NetworkMonitor;
 import com.google.android.material.button.MaterialButton;
 
@@ -420,6 +421,10 @@ public class ProfileFragment extends Fragment {
             String phone = etPhone.getText() != null ? etPhone.getText().toString().trim() : "";
             String detail = etDetail.getText() != null ? etDetail.getText().toString().trim() : "";
 
+            if (!CartViewModel.isValidPhone(phone)) {
+                Toast.makeText(requireContext(), "Vui lòng nhập số điện thoại nhận hàng hợp lệ (10-11 chữ số)", Toast.LENGTH_SHORT).show();
+                return;
+            }
             if (detail.isEmpty()) {
                 Toast.makeText(requireContext(), "Vui lòng nhập địa chỉ chi tiết", Toast.LENGTH_SHORT).show();
                 return;

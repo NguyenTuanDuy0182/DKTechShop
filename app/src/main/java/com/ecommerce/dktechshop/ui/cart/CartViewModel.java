@@ -221,6 +221,12 @@ public class CartViewModel extends ViewModel {
         return total;
     }
 
+    public static boolean isValidPhone(String phone) {
+        if (phone == null) return false;
+        String cleaned = phone.trim().replaceAll("[\\s.-]", "");
+        return cleaned.matches("^(0|\\+84)[0-9]{9,10}$");
+    }
+
     /**
      * Thêm sản phẩm vào giỏ hàng Firestore.
      */
@@ -338,6 +344,11 @@ public class CartViewModel extends ViewModel {
         if ((recipientPhone == null || recipientPhone.trim().isEmpty()) && shippingAddress.getPhone() != null) {
             recipientPhone = shippingAddress.getPhone();
         }
+        if (!isValidPhone(recipientPhone)) {
+            errorMessage.setValue("Vui lòng cập nhật số điện thoại nhận hàng hợp lệ trước khi đặt hàng");
+            return;
+        }
+        recipientPhone = recipientPhone.trim();
 
         String payment = (paymentMethod != null && !paymentMethod.trim().isEmpty())
                 ? paymentMethod

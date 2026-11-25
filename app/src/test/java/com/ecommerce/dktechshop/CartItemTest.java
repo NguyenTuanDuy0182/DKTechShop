@@ -1,7 +1,9 @@
 package com.ecommerce.dktechshop;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.ecommerce.dktechshop.data.model.CartItem;
 import com.ecommerce.dktechshop.data.repository.CartRepository;
@@ -77,5 +79,17 @@ public class CartItemTest {
         Set<String> allSelected = new HashSet<>(Arrays.asList("item_1", "item_2", "item_3"));
         assertEquals(3, CartViewModel.filterSelectedItems(allItems, allSelected).size());
         assertEquals(5500000L, CartViewModel.calculateSelectedTotal(allItems, allSelected));
+    }
+
+    @Test
+    public void testPhoneValidationForCheckout() {
+        assertFalse(CartViewModel.isValidPhone(null));
+        assertFalse(CartViewModel.isValidPhone(""));
+        assertFalse(CartViewModel.isValidPhone("   "));
+        assertFalse(CartViewModel.isValidPhone("12345"));
+        assertFalse(CartViewModel.isValidPhone("0909abcdef"));
+        assertTrue(CartViewModel.isValidPhone("0909123456"));
+        assertTrue(CartViewModel.isValidPhone("0909 123 456"));
+        assertTrue(CartViewModel.isValidPhone("+84909123456"));
     }
 }
