@@ -134,7 +134,6 @@ public class ProfileFragment extends Fragment {
 
         // Quan sát dữ liệu người dùng từ AuthViewModel
         observeViewModel();
-        updatePasswordSectionState();
 
         btnEditNameTrigger.setOnClickListener(v -> toggleSection(layoutExpandedRename, ivArrowRename));
 
@@ -150,6 +149,10 @@ public class ProfileFragment extends Fragment {
             if (!authViewModel.isPasswordSignInUser()) return;
             toggleSection(layoutExpandedPassword, ivArrowPassword);
         });
+
+        // Gọi SAU khi gán setOnClickListener (vì setOnClickListener tự bật lại clickable=true)
+        updatePasswordSectionState();
+        authViewModel.refreshPasswordEligibility();
 
         btnToggleAddAddress.setOnClickListener(v -> showAddressDialog(null));
 
@@ -227,6 +230,8 @@ public class ProfileFragment extends Fragment {
             updatePasswordSectionState();
         });
 
+        authViewModel.getCanChangePassword().observe(getViewLifecycleOwner(), eligible -> updatePasswordSectionState());
+
         authViewModel.getAddresses().observe(getViewLifecycleOwner(), this::renderAddressList);
 
         authViewModel.getSuccessMessage().observe(getViewLifecycleOwner(), msg -> {
@@ -246,6 +251,15 @@ public class ProfileFragment extends Fragment {
                 authViewModel.clearStatus();
             }
         });
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (authViewModel != null) {
+            authViewModel.refreshPasswordEligibility();
+        }
+        updatePasswordSectionState();
     }
 
     private void updatePasswordSectionState() {

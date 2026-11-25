@@ -21,9 +21,11 @@ public class AuthViewModel extends ViewModel {
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
     private final MutableLiveData<String> successMessage = new MutableLiveData<>();
     private final MutableLiveData<Boolean> authSuccess = new MutableLiveData<>(false);
+    private final MutableLiveData<Boolean> canChangePassword = new MutableLiveData<>(false);
 
     public AuthViewModel() {
         this.authRepository = AuthRepository.getInstance();
+        refreshPasswordEligibility();
         loadCurrentUser();
     }
 
@@ -51,8 +53,19 @@ public class AuthViewModel extends ViewModel {
         return authSuccess;
     }
 
+    public LiveData<Boolean> getCanChangePassword() {
+        return canChangePassword;
+    }
+
     public boolean isPasswordSignInUser() {
         return authRepository.isPasswordSignInUser();
+    }
+
+    public void refreshPasswordEligibility() {
+        canChangePassword.setValue(authRepository.isPasswordSignInUser());
+        authRepository.resolveSignInProvider(() ->
+                canChangePassword.postValue(authRepository.isPasswordSignInUser())
+        );
     }
 
     public void clearStatus() {
@@ -65,6 +78,7 @@ public class AuthViewModel extends ViewModel {
      * Tải thông tin người dùng từ Firestore nếu đã có phiên đăng nhập.
      */
     public void loadCurrentUser() {
+        refreshPasswordEligibility();
         if (authRepository.getCurrentFirebaseUser() != null) {
             authRepository.fetchCurrentUser(new AuthRepository.AuthCallback() {
                 @Override
@@ -92,6 +106,7 @@ public class AuthViewModel extends ViewModel {
             public void onSuccess(User user) {
                 isLoading.setValue(false);
                 currentUser.setValue(user);
+                refreshPasswordEligibility();
                 loadAddresses();
                 authSuccess.setValue(true);
             }
@@ -115,6 +130,7 @@ public class AuthViewModel extends ViewModel {
             public void onSuccess(User user) {
                 isLoading.setValue(false);
                 currentUser.setValue(user);
+                refreshPasswordEligibility();
                 loadAddresses();
                 authSuccess.setValue(true);
             }
@@ -138,6 +154,7 @@ public class AuthViewModel extends ViewModel {
             public void onSuccess(User user) {
                 isLoading.setValue(false);
                 currentUser.setValue(user);
+                refreshPasswordEligibility();
                 loadAddresses();
                 authSuccess.setValue(true);
             }
@@ -337,6 +354,7 @@ public class AuthViewModel extends ViewModel {
     public void logout() {
         authRepository.signOut();
         currentUser.setValue(null);
+        canChangePassword.setValue(false);
         addresses.setValue(new ArrayList<>());
     }
 }

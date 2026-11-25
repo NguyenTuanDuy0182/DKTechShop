@@ -32,6 +32,7 @@ public class AuthRepository {
     private final FirebaseAuth mAuth;
     private final FirebaseFirestore mFirestore;
     private User cachedUser;
+    private String activeSignInProvider;
 
     public interface AuthCallback {
         void onSuccess(User user);
@@ -65,18 +66,55 @@ public class AuthRepository {
     }
 
     /**
-     * Kiểm tra tài khoản hiện tại có đăng nhập bằng Email/Mật khẩu hay không.
-     * Tài khoản chỉ đăng nhập bằng Google sẽ trả về false.
+     * Kiểm tra phiên đăng nhập hiện tại có phải đăng nhập bằng Email/Mật khẩu hay không.
+     * Trả về false nếu phiên hiện tại đăng nhập bằng Google (kể cả khi tài khoản từng liên kết password trước đó).
      */
     public boolean isPasswordSignInUser() {
         FirebaseUser fbUser = mAuth.getCurrentUser();
         if (fbUser == null) return false;
+
+        if (GoogleAuthProvider.PROVIDER_ID.equals(activeSignInProvider)) {
+            return false;
+        }
+        if (EmailAuthProvider.PROVIDER_ID.equals(activeSignInProvider)) {
+            return true;
+        }
+
+        boolean hasPassword = false;
+        boolean hasGoogle = false;
         for (UserInfo info : fbUser.getProviderData()) {
-            if (info != null && EmailAuthProvider.PROVIDER_ID.equals(info.getProviderId())) {
-                return true;
+            if (info == null) continue;
+            String pid = info.getProviderId();
+            if (EmailAuthProvider.PROVIDER_ID.equals(pid)) {
+                hasPassword = true;
+            } else if (GoogleAuthProvider.PROVIDER_ID.equals(pid)) {
+                hasGoogle = true;
             }
         }
-        return false;
+        // Nếu có provider google.com mà chưa đọc xong JWT sign_in_provider -> ưu tiên khóa an toàn cho đến khi token xác nhận
+        return hasPassword && !hasGoogle;
+    }
+
+    /**
+     * Đọc chính xác sign_in_provider của phiên hiện tại từ Firebase ID Token (JWT claim).
+     */
+    public void resolveSignInProvider(Runnable onResolved) {
+        FirebaseUser fbUser = mAuth.getCurrentUser();
+        if (fbUser == null) {
+            activeSignInProvider = null;
+            if (onResolved != null) onResolved.run();
+            return;
+        }
+        fbUser.getIdToken(false)
+                .addOnSuccessListener(result -> {
+                    if (result != null && result.getSignInProvider() != null) {
+                        activeSignInProvider = result.getSignInProvider();
+                    }
+                    if (onResolved != null) onResolved.run();
+                })
+                .addOnFailureListener(e -> {
+                    if (onResolved != null) onResolved.run();
+                });
     }
 
     public User getCachedUser() {
@@ -94,6 +132,7 @@ public class AuthRepository {
         mAuth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful() && mAuth.getCurrentUser() != null) {
+                        activeSignInProvider = EmailAuthProvider.PROVIDER_ID;
                         FirebaseUser fbUser = mAuth.getCurrentUser();
                         String uid = fbUser.getUid();
 
@@ -125,6 +164,7 @@ public class AuthRepository {
         mAuth.signInWithEmailAndPassword(email, password)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful() && mAuth.getCurrentUser() != null) {
+                        activeSignInProvider = EmailAuthProvider.PROVIDER_ID;
                         fetchCurrentUser(callback);
                     } else {
                         callback.onFailure(mapAuthError(task.getException(), "Đăng nhập thất bại. Vui lòng thử lại."));
@@ -140,6 +180,7 @@ public class AuthRepository {
         mAuth.signInWithCredential(credential)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful() && mAuth.getCurrentUser() != null) {
+                        activeSignInProvider = GoogleAuthProvider.PROVIDER_ID;
                         fetchCurrentUser(callback);
                     } else {
                         callback.onFailure(mapAuthError(task.getException(), "Đăng nhập Google thất bại. Vui lòng thử lại."));
@@ -436,5 +477,6 @@ public class AuthRepository {
     public void signOut() {
         mAuth.signOut();
         cachedUser = null;
+        activeSignInProvider = null;
     }
 }
