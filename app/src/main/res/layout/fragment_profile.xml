@@ -345,22 +345,42 @@
                 <LinearLayout
                     android:id="@+id/menu_item_password_header"
                     android:layout_width="match_parent"
-                    android:layout_height="52dp"
+                    android:layout_height="wrap_content"
+                    android:minHeight="52dp"
                     android:background="?selectableItemBackground"
                     android:clickable="true"
                     android:focusable="true"
                     android:gravity="center_vertical"
                     android:paddingStart="16dp"
+                    android:paddingTop="12dp"
                     android:paddingEnd="16dp"
+                    android:paddingBottom="12dp"
                     android:orientation="horizontal">
 
-                    <TextView
+                    <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Đổi mật khẩu"
-                        android:textColor="@color/md_theme_light_onSurface"
-                        android:textSize="14sp" />
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tv_menu_password_title"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Đổi mật khẩu"
+                            android:textColor="@color/md_theme_light_onSurface"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:id="@+id/tv_menu_password_subtitle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="Không khả dụng với tài khoản đăng nhập bằng Google"
+                            android:textColor="@color/md_theme_light_onSurfaceVariant"
+                            android:textSize="11sp"
+                            android:visibility="gone" />
+                    </LinearLayout>
 
                     <ImageView
                         android:id="@+id/iv_arrow_password"

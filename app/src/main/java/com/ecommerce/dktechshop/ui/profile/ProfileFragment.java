@@ -59,9 +59,12 @@ public class ProfileFragment extends Fragment {
     private EditText etEditPhone;
 
     // Password section views
+    private LinearLayout menuItemPassword;
+    private TextView tvPasswordSubtitle;
     private EditText etCurrentPass;
     private EditText etNewPass;
     private EditText etConfirmPass;
+    private MaterialButton btnSavePass;
 
     private AuthViewModel authViewModel;
 
@@ -103,7 +106,8 @@ public class ProfileFragment extends Fragment {
         LinearLayout menuItemOrders = view.findViewById(R.id.menu_item_orders);
         LinearLayout menuItemAddress = view.findViewById(R.id.menu_item_address_header);
         LinearLayout menuItemRename = view.findViewById(R.id.menu_item_rename_header);
-        LinearLayout menuItemPassword = view.findViewById(R.id.menu_item_password_header);
+        menuItemPassword = view.findViewById(R.id.menu_item_password_header);
+        tvPasswordSubtitle = view.findViewById(R.id.tv_menu_password_subtitle);
 
         layoutExpandedAddress = view.findViewById(R.id.layout_expanded_address);
         layoutExpandedRename = view.findViewById(R.id.layout_expanded_rename);
@@ -124,12 +128,13 @@ public class ProfileFragment extends Fragment {
         etCurrentPass = view.findViewById(R.id.et_current_password);
         etNewPass = view.findViewById(R.id.et_new_password);
         etConfirmPass = view.findViewById(R.id.et_confirm_new_password);
-        MaterialButton btnSavePass = view.findViewById(R.id.btn_save_password);
+        btnSavePass = view.findViewById(R.id.btn_save_password);
 
         MaterialButton btnLogout = view.findViewById(R.id.btn_profile_logout);
 
         // Quan sát dữ liệu người dùng từ AuthViewModel
         observeViewModel();
+        updatePasswordSectionState();
 
         btnEditNameTrigger.setOnClickListener(v -> toggleSection(layoutExpandedRename, ivArrowRename));
 
@@ -141,7 +146,10 @@ public class ProfileFragment extends Fragment {
 
         menuItemAddress.setOnClickListener(v -> toggleSection(layoutExpandedAddress, ivArrowAddress));
         menuItemRename.setOnClickListener(v -> toggleSection(layoutExpandedRename, ivArrowRename));
-        menuItemPassword.setOnClickListener(v -> toggleSection(layoutExpandedPassword, ivArrowPassword));
+        menuItemPassword.setOnClickListener(v -> {
+            if (!authViewModel.isPasswordSignInUser()) return;
+            toggleSection(layoutExpandedPassword, ivArrowPassword);
+        });
 
         btnToggleAddAddress.setOnClickListener(v -> showAddressDialog(null));
 
@@ -216,6 +224,7 @@ public class ProfileFragment extends Fragment {
                 etEditName.setText(user.getName());
                 etEditPhone.setText(user.getPhone());
             }
+            updatePasswordSectionState();
         });
 
         authViewModel.getAddresses().observe(getViewLifecycleOwner(), this::renderAddressList);
@@ -237,6 +246,32 @@ public class ProfileFragment extends Fragment {
                 authViewModel.clearStatus();
             }
         });
+    }
+
+    private void updatePasswordSectionState() {
+        boolean canChangePassword = authViewModel != null && authViewModel.isPasswordSignInUser();
+        if (menuItemPassword != null) {
+            menuItemPassword.setEnabled(canChangePassword);
+            menuItemPassword.setClickable(canChangePassword);
+            menuItemPassword.setFocusable(canChangePassword);
+            menuItemPassword.setAlpha(canChangePassword ? 1.0f : 0.45f);
+        }
+        if (tvPasswordSubtitle != null) {
+            tvPasswordSubtitle.setVisibility(canChangePassword ? View.GONE : View.VISIBLE);
+        }
+        if (ivArrowPassword != null) {
+            ivArrowPassword.setVisibility(canChangePassword ? View.VISIBLE : View.GONE);
+            if (!canChangePassword) {
+                ivArrowPassword.setRotation(0);
+            }
+        }
+        if (!canChangePassword && layoutExpandedPassword != null) {
+            layoutExpandedPassword.setVisibility(View.GONE);
+        }
+        if (etCurrentPass != null) etCurrentPass.setEnabled(canChangePassword);
+        if (etNewPass != null) etNewPass.setEnabled(canChangePassword);
+        if (etConfirmPass != null) etConfirmPass.setEnabled(canChangePassword);
+        if (btnSavePass != null) btnSavePass.setEnabled(canChangePassword);
     }
 
     private void toggleSection(LinearLayout layout, ImageView arrow) {

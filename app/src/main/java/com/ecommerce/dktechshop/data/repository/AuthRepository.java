@@ -5,6 +5,7 @@ import com.ecommerce.dktechshop.data.model.User;
 import com.google.firebase.FirebaseNetworkException;
 import com.google.firebase.FirebaseTooManyRequestsException;
 import com.google.firebase.auth.AuthCredential;
+import com.google.firebase.auth.EmailAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException;
 import com.google.firebase.auth.FirebaseAuthInvalidUserException;
@@ -13,6 +14,7 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException;
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
+import com.google.firebase.auth.UserInfo;
 import com.google.firebase.auth.UserProfileChangeRequest;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -60,6 +62,21 @@ public class AuthRepository {
 
     public FirebaseUser getCurrentFirebaseUser() {
         return mAuth.getCurrentUser();
+    }
+
+    /**
+     * Kiểm tra tài khoản hiện tại có đăng nhập bằng Email/Mật khẩu hay không.
+     * Tài khoản chỉ đăng nhập bằng Google sẽ trả về false.
+     */
+    public boolean isPasswordSignInUser() {
+        FirebaseUser fbUser = mAuth.getCurrentUser();
+        if (fbUser == null) return false;
+        for (UserInfo info : fbUser.getProviderData()) {
+            if (info != null && EmailAuthProvider.PROVIDER_ID.equals(info.getProviderId())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public User getCachedUser() {
@@ -200,6 +217,10 @@ public class AuthRepository {
         FirebaseUser fbUser = mAuth.getCurrentUser();
         if (fbUser == null) {
             callback.onFailure("Chưa đăng nhập");
+            return;
+        }
+        if (!isPasswordSignInUser()) {
+            callback.onFailure("Tài khoản đăng nhập bằng Google không hỗ trợ đổi mật khẩu.");
             return;
         }
 

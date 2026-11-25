@@ -51,6 +51,10 @@ public class AuthViewModel extends ViewModel {
         return authSuccess;
     }
 
+    public boolean isPasswordSignInUser() {
+        return authRepository.isPasswordSignInUser();
+    }
+
     public void clearStatus() {
         errorMessage.setValue(null);
         successMessage.setValue(null);
