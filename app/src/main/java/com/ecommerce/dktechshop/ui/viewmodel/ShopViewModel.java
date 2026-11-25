@@ -17,10 +17,19 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 public class ShopViewModel extends ViewModel {
+    public enum SortOption {
+        DEFAULT,
+        PRICE_ASC,
+        PRICE_DESC,
+        SOLD_DESC,
+        SOLD_ASC
+    }
+
     private static final Pattern DIACRITICS = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
     private final ProductRepository repository;
     private final MutableLiveData<List<Product>> products = new MutableLiveData<>(new ArrayList<>());
     private final MutableLiveData<String> selectedCategory = new MutableLiveData<>("all");
+    private final MutableLiveData<SortOption> sortOption = new MutableLiveData<>(SortOption.DEFAULT);
     private final MutableLiveData<Boolean> isLoading = new MutableLiveData<>(false);
     private final MutableLiveData<String> errorMessage = new MutableLiveData<>();
     private final MutableLiveData<Product> selectedProduct = new MutableLiveData<>();
@@ -28,6 +37,8 @@ public class ShopViewModel extends ViewModel {
     private final MutableLiveData<Boolean> isEligibleToReview = new MutableLiveData<>(false);
     private final MutableLiveData<Boolean> reviewSubmitted = new MutableLiveData<>(false);
     private List<Product> masterProducts = new ArrayList<>();
+    private List<Product> currentCategoryProducts = new ArrayList<>();
+    private SortOption currentSort = SortOption.DEFAULT;
 
     public ShopViewModel() {
         this(ProductRepository.getInstance());
@@ -44,6 +55,46 @@ public class ShopViewModel extends ViewModel {
 
     public LiveData<String> getSelectedCategory() {
         return selectedCategory;
+    }
+
+    public LiveData<SortOption> getSortOption() {
+        return sortOption;
+    }
+
+    public void setSortOption(SortOption option) {
+        currentSort = option != null ? option : SortOption.DEFAULT;
+        sortOption.setValue(currentSort);
+        products.setValue(sortProducts(currentCategoryProducts, currentSort));
+    }
+
+    public static List<Product> sortProducts(List<Product> source, SortOption option) {
+        List<Product> sorted = source != null ? new ArrayList<>(source) : new ArrayList<>();
+        if (option == null || option == SortOption.DEFAULT || sorted.size() <= 1) {
+            return sorted;
+        }
+        switch (option) {
+            case PRICE_ASC:
+                sorted.sort((a, b) -> Long.compare(a.getPrice(), b.getPrice()));
+                break;
+            case PRICE_DESC:
+                sorted.sort((a, b) -> Long.compare(b.getPrice(), a.getPrice()));
+                break;
+            case SOLD_DESC:
+                sorted.sort((a, b) -> {
+                    int cmp = Integer.compare(b.getSoldCount(), a.getSoldCount());
+                    return cmp != 0 ? cmp : Long.compare(a.getPrice(), b.getPrice());
+                });
+                break;
+            case SOLD_ASC:
+                sorted.sort((a, b) -> {
+                    int cmp = Integer.compare(a.getSoldCount(), b.getSoldCount());
+                    return cmp != 0 ? cmp : Long.compare(a.getPrice(), b.getPrice());
+                });
+                break;
+            default:
+                break;
+        }
+        return sorted;
     }
 
     public LiveData<Boolean> getIsLoading() {
@@ -84,8 +135,9 @@ public class ShopViewModel extends ViewModel {
         repository.getAllProducts(new ProductRepository.Callback<List<Product>>() {
             @Override
             public void onSuccess(List<Product> result) {
-                masterProducts = result;
-                products.setValue(result);
+                masterProducts = result != null ? new ArrayList<>(result) : new ArrayList<>();
+                currentCategoryProducts = new ArrayList<>(masterProducts);
+                products.setValue(sortProducts(currentCategoryProducts, currentSort));
                 isLoading.setValue(false);
             }
 
@@ -103,7 +155,8 @@ public class ShopViewModel extends ViewModel {
         repository.getProductsByCategory(category, new ProductRepository.Callback<List<Product>>() {
             @Override
             public void onSuccess(List<Product> result) {
-                products.setValue(result);
+                currentCategoryProducts = result != null ? new ArrayList<>(result) : new ArrayList<>();
+                products.setValue(sortProducts(currentCategoryProducts, currentSort));
                 isLoading.setValue(false);
             }
 

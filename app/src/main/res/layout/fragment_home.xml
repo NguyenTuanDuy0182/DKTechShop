@@ -116,13 +116,6 @@
                     android:text="Tìm kiếm sản phẩm..."
                     android:textColor="@color/md_theme_light_onSurfaceVariant"
                     android:textSize="13sp" />
-
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_tune"
-                    app:tint="@color/md_theme_light_onSurfaceVariant"
-                    android:contentDescription="Filter icon" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -206,12 +199,32 @@
 
             <TextView
                 android:id="@+id/tv_section_title"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Sản phẩm nổi bật"
+                android:layout_weight="1"
+                android:text="Thiết bị nổi bật"
                 android:textColor="@color/md_theme_light_onSurface"
                 android:textSize="14sp"
                 android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_home_sort"
+                style="@style/Widget.DKTechShop.Button.Pill"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:minWidth="0dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="Sắp xếp"
+                android:textColor="@color/md_theme_light_onSurface"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                app:backgroundTint="@color/md_theme_light_surfaceContainerHigh"
+                app:icon="@drawable/ic_tune"
+                app:iconGravity="textStart"
+                app:iconPadding="6dp"
+                app:iconSize="16dp"
+                app:iconTint="@color/md_theme_light_onSurfaceVariant" />
         </LinearLayout>
 
         <!-- 2-Column Product Grid -->

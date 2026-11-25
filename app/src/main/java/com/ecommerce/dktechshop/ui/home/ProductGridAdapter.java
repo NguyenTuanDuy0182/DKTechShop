@@ -50,6 +50,9 @@ public class ProductGridAdapter extends RecyclerView.Adapter<ProductGridAdapter.
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Product p = productList.get(position);
         holder.tvBrand.setText(p.getBrand());
+        if (holder.tvSoldCount != null) {
+            holder.tvSoldCount.setText("Đã bán " + formatSoldCount(p.getSoldCount()));
+        }
         holder.tvName.setText(p.getName());
         holder.tvPrice.setText(CurrencyUtils.formatVND(p.getPrice()));
         if (p.getOriginalPrice() > p.getPrice() && p.getDiscountPercent() > 0) {
@@ -94,10 +97,19 @@ public class ProductGridAdapter extends RecyclerView.Adapter<ProductGridAdapter.
         return productList != null ? productList.size() : 0;
     }
 
+    public static String formatSoldCount(int soldCount) {
+        int safe = Math.max(0, soldCount);
+        if (safe >= 1000) {
+            return String.format(java.util.Locale.US, "%.1fk", safe / 1000.0);
+        }
+        return String.valueOf(safe);
+    }
+
     static class ViewHolder extends RecyclerView.ViewHolder {
         ImageView ivIcon;
         TextView tvDiscountTag;
         TextView tvBrand;
+        TextView tvSoldCount;
         TextView tvName;
         TextView tvOriginalPrice;
         TextView tvPrice;
@@ -108,6 +120,7 @@ public class ProductGridAdapter extends RecyclerView.Adapter<ProductGridAdapter.
             ivIcon = itemView.findViewById(R.id.iv_product_icon);
             tvDiscountTag = itemView.findViewById(R.id.tv_discount_tag);
             tvBrand = itemView.findViewById(R.id.tv_brand);
+            tvSoldCount = itemView.findViewById(R.id.tv_sold_count);
             tvName = itemView.findViewById(R.id.tv_product_name);
             tvOriginalPrice = itemView.findViewById(R.id.tv_original_price);
             tvPrice = itemView.findViewById(R.id.tv_price);

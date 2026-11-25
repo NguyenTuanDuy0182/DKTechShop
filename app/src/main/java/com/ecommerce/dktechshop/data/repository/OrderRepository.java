@@ -62,11 +62,13 @@ public class OrderRepository {
     public static class StockUpdateResult {
         public final List<Map<String, Object>> serializedVariants;
         public final int totalStock;
+        public final int soldCount;
         public final boolean hasVariants;
 
-        public StockUpdateResult(List<Map<String, Object>> serializedVariants, int totalStock, boolean hasVariants) {
+        public StockUpdateResult(List<Map<String, Object>> serializedVariants, int totalStock, int soldCount, boolean hasVariants) {
             this.serializedVariants = serializedVariants;
             this.totalStock = totalStock;
+            this.soldCount = Math.max(0, soldCount);
             this.hasVariants = hasVariants;
         }
     }
@@ -146,6 +148,7 @@ public class OrderRepository {
                 StockUpdateResult result = entry.getValue();
                 Map<String, Object> stockUpdate = new HashMap<>();
                 stockUpdate.put("stock", result.totalStock);
+                stockUpdate.put("soldCount", result.soldCount);
                 if (result.hasVariants && result.serializedVariants != null) {
                     stockUpdate.put("variants", result.serializedVariants);
                 }
@@ -386,10 +389,12 @@ public class OrderRepository {
                 }
             }
 
+            int totalDelta = 0;
             if (variantDeltas != null) {
                 for (Map.Entry<String, Integer> entry : variantDeltas.entrySet()) {
                     int delta = entry.getValue() != null ? entry.getValue() : 0;
                     if (delta == 0) continue;
+                    totalDelta += delta;
 
                     String requestedVariant = entry.getKey() != null ? entry.getKey().trim() : "";
                     ProductVariant matched = null;
@@ -435,7 +440,8 @@ public class OrderRepository {
                 map.put("stock", safeStock);
                 serialized.add(map);
             }
-            return new StockUpdateResult(serialized, totalStock, true);
+            int updatedSoldCount = Math.max(0, product.getSoldCount() - totalDelta);
+            return new StockUpdateResult(serialized, totalStock, updatedSoldCount, true);
         }
 
         int totalDelta = 0;
@@ -452,7 +458,8 @@ public class OrderRepository {
             }
             throw new IllegalStateException("Sản phẩm " + productName + " chỉ còn " + currentStock + " sản phẩm trong kho");
         }
-        return new StockUpdateResult(null, Math.max(0, updatedStock), false);
+        int updatedSoldCount = Math.max(0, product.getSoldCount() - totalDelta);
+        return new StockUpdateResult(null, Math.max(0, updatedStock), updatedSoldCount, false);
     }
 
     private static String extractReadableError(Exception e, String fallbackPrefix) {
@@ -590,6 +597,7 @@ public class OrderRepository {
                 StockUpdateResult result = entry.getValue();
                 Map<String, Object> stockRestore = new HashMap<>();
                 stockRestore.put("stock", result.totalStock);
+                stockRestore.put("soldCount", result.soldCount);
                 if (result.hasVariants && result.serializedVariants != null) {
                     stockRestore.put("variants", result.serializedVariants);
                 }

@@ -126,6 +126,8 @@ public class OrderTest {
                 )
         );
 
+        product.setSoldCount(89);
+
         // 1. Đặt hàng gồm 2 màu khác nhau của cùng 1 sản phẩm: 2 Đen + 3 Tím Lilac
         List<CartItem> cartItems = Arrays.asList(
                 new CartItem("c1", "prod_logi_g102", "Bàn phím cơ DareU EK87", "keyboard", 450000L, "Đen", 2),
@@ -140,6 +142,7 @@ public class OrderTest {
         OrderRepository.StockUpdateResult afterOrder = OrderRepository.applyVariantStockDeltas(product, deductions, true);
         assertTrue(afterOrder.hasVariants);
         assertEquals(31, afterOrder.totalStock);
+        assertEquals(94, afterOrder.soldCount); // 89 + (2 + 3)
         assertEquals(10, afterOrder.serializedVariants.get(0).get("stock")); // Đen: 12 - 2
         assertEquals(10, afterOrder.serializedVariants.get(1).get("stock")); // Trắng: giữ nguyên 10
         assertEquals(8, afterOrder.serializedVariants.get(2).get("stock"));  // Xanh Dương: giữ nguyên 8
@@ -148,6 +151,7 @@ public class OrderTest {
         // Cập nhật trạng thái sản phẩm như sau khi ghi lên Firestore
         product.setVariants(afterOrder.serializedVariants);
         product.setStock(afterOrder.totalStock);
+        product.setSoldCount(afterOrder.soldCount);
 
         // 2. Thử đặt 4 Tím Lilac (chỉ còn 3) dù tổng kho vẫn còn 31 -> phải từ chối
         Map<String, Integer> overOrder = new LinkedHashMap<>();
@@ -160,7 +164,7 @@ public class OrderTest {
             assertTrue(expected.getMessage().contains("3"));
         }
 
-        // 3. Hủy đơn hàng cũ -> hoàn đúng 2 Đen + 3 Tím Lilac về đúng từng màu
+        // 3. Hủy đơn hàng cũ -> hoàn đúng 2 Đen + 3 Tím Lilac về đúng từng màu và giảm soldCount
         List<OrderItem> cancelledItems = Arrays.asList(
                 new OrderItem("prod_logi_g102", "Bàn phím cơ DareU EK87", "Đen", 450000L, 2),
                 new OrderItem("prod_logi_g102", "Bàn phím cơ DareU EK87", "Tím Lilac", 480000L, 3)
@@ -170,6 +174,7 @@ public class OrderTest {
                 product, groupedCancel.get("prod_logi_g102"), false);
 
         assertEquals(36, afterCancel.totalStock);
+        assertEquals(89, afterCancel.soldCount); // 94 - (2 + 3)
         assertEquals(12, afterCancel.serializedVariants.get(0).get("stock")); // Đen: 10 + 2
         assertEquals(10, afterCancel.serializedVariants.get(1).get("stock")); // Trắng: 10
         assertEquals(8, afterCancel.serializedVariants.get(2).get("stock"));  // Xanh Dương: 8

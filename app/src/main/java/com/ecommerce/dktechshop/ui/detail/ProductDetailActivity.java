@@ -190,11 +190,12 @@ public class ProductDetailActivity extends AppCompatActivity {
             }
         }
         int totalStock = product.computeTotalStock();
+        int soldCount = product.getSoldCount();
         if (totalStock > 0) {
-            tvStock.setText("Còn sẵn " + totalStock + " thiết bị tại kho");
+            tvStock.setText("Còn sẵn " + totalStock + " thiết bị tại kho • Đã bán " + soldCount);
             tvStock.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_onSurfaceVariant));
         } else {
-            tvStock.setText("Tạm hết hàng");
+            tvStock.setText("Tạm hết hàng • Đã bán " + soldCount);
             tvStock.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_error));
         }
         tvPrice.setText(CurrencyUtils.formatVND(product.getPrice()));

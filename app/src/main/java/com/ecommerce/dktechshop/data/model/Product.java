@@ -18,6 +18,7 @@ public class Product implements Serializable {
     private double rating = 5.0;
     private int reviewCount = 0;
     private int stock = 0;
+    private int soldCount = 0;
     private String thumbnailUrl = "";
     private String description = "";
     private Map<String, String> specs = new HashMap<>();
@@ -76,6 +77,8 @@ public class Product implements Serializable {
     public void setReviewCount(int reviewCount) { this.reviewCount = reviewCount; }
     public int getStock() { return stock; }
     public void setStock(int stock) { this.stock = stock; }
+    public int getSoldCount() { return Math.max(0, soldCount); }
+    public void setSoldCount(int soldCount) { this.soldCount = Math.max(0, soldCount); }
     public String getThumbnailUrl() { return thumbnailUrl; }
     public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl != null ? thumbnailUrl : ""; }
     public String getDescription() { return description; }
