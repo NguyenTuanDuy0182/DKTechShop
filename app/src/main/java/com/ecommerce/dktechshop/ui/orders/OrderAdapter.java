@@ -14,7 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.OrderItem;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.utils.CurrencyUtils;
 import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
@@ -53,7 +53,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.ViewHolder> 
         Order o = orderList.get(position);
         holder.tvOrderId.setText("#" + o.getOrderId());
         holder.tvDatePayment.setText(o.getCreatedAt() + " • " + o.getPaymentMethod());
-        holder.tvTotal.setText(MockRepository.formatVND(o.getTotalAmount()));
+        holder.tvTotal.setText(CurrencyUtils.formatVND(o.getTotalAmount()));
 
         // Item click listener để mở OrderDetailActivity
         holder.itemView.setOnClickListener(v -> {
@@ -142,7 +142,7 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.ViewHolder> 
                 row.addView(textCol);
 
                 TextView tvItemPrice = new TextView(holder.itemView.getContext());
-                tvItemPrice.setText(MockRepository.formatVND(item.getPrice() * item.getQuantity()));
+                tvItemPrice.setText(CurrencyUtils.formatVND(item.getPrice() * item.getQuantity()));
                 tvItemPrice.setTextSize(12);
                 tvItemPrice.setTextColor(ContextCompat.getColor(holder.itemView.getContext(), R.color.md_theme_light_onSurface));
                 row.addView(tvItemPrice);

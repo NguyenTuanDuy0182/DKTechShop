@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -19,12 +20,14 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.data.model.User;
+import com.ecommerce.dktechshop.data.repository.AuthRepository;
 import com.ecommerce.dktechshop.ui.auth.AuthViewModel;
 import com.ecommerce.dktechshop.ui.cart.CartViewModel;
 import com.ecommerce.dktechshop.ui.detail.ProductDetailActivity;
 import com.ecommerce.dktechshop.ui.search.SearchActivity;
 import com.ecommerce.dktechshop.ui.viewmodel.ShopViewModel;
+import com.ecommerce.dktechshop.utils.NetworkMonitor;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.chip.ChipGroup;
@@ -40,9 +43,11 @@ public class HomeFragment extends Fragment {
     private ShopViewModel viewModel;
     private CircularProgressIndicator progressLoading;
     private RecyclerView rvProducts;
+    private LinearLayout layoutHomeOffline;
     private SwipeRefreshLayout swipeRefreshHome;
     private CartViewModel cartViewModel;
     private AuthViewModel authViewModel;
+    private String currentCategory = "all";
 
     @Nullable
     @Override
@@ -66,7 +71,21 @@ public class HomeFragment extends Fragment {
         tvSectionTitle = view.findViewById(R.id.tv_section_title);
         rvProducts = view.findViewById(R.id.rv_products_grid);
         progressLoading = view.findViewById(R.id.progress_loading);
+        layoutHomeOffline = view.findViewById(R.id.layout_home_offline);
+        MaterialButton btnHomeRetry = view.findViewById(R.id.btn_home_retry);
         swipeRefreshHome = view.findViewById(R.id.swipe_refresh_home);
+
+        if (btnHomeRetry != null) {
+            btnHomeRetry.setOnClickListener(v -> {
+                if (!NetworkMonitor.isConnected(requireContext())) {
+                    Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (viewModel != null) {
+                    viewModel.filterByCategory(currentCategory);
+                }
+            });
+        }
 
         if (swipeRefreshHome != null) {
             swipeRefreshHome.setColorSchemeResources(
@@ -75,14 +94,19 @@ public class HomeFragment extends Fragment {
                     R.color.md_theme_light_error
             );
             swipeRefreshHome.setOnRefreshListener(() -> {
+                if (!NetworkMonitor.isConnected(requireContext())) {
+                    swipeRefreshHome.setRefreshing(false);
+                    Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                    updateOfflineView();
+                    return;
+                }
                 if (viewModel != null) {
-                    viewModel.loadProducts();
+                    viewModel.filterByCategory(currentCategory);
                 }
             });
         }
 
-        // Hiển thị ngay tên người dùng từ Firebase Auth (nếu có cache) hoặc
-        // MockRepository
+        // Hiển thị ngay tên người dùng từ Firebase Auth hoặc bộ nhớ đệm AuthRepository
         updateGreeting();
 
         // Lắng nghe dữ liệu người dùng thời gian thực từ AuthViewModel
@@ -120,6 +144,10 @@ public class HomeFragment extends Fragment {
 
             @Override
             public void onQuickAddClick(Product product) {
+                if (!NetworkMonitor.isConnected(requireContext())) {
+                    Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 String variant = (product.getVariants() != null && !product.getVariants().isEmpty())
                         ? product.getVariants().get(0).getName()
                         : "Mặc định";
@@ -142,6 +170,22 @@ public class HomeFragment extends Fragment {
             if (tvSectionTitle != null) {
                 tvSectionTitle.setText("Thiết bị nổi bật (" + (list != null ? list.size() : 0) + ")");
             }
+            updateOfflineView();
+        });
+
+        viewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
+            if (swipeRefreshHome != null) {
+                swipeRefreshHome.setRefreshing(false);
+            }
+            updateOfflineView();
+        });
+
+        NetworkMonitor.getInstance(requireContext()).observe(getViewLifecycleOwner(), connected -> {
+            boolean online = Boolean.TRUE.equals(connected);
+            updateOfflineView();
+            if (online && (viewModel.getProducts().getValue() == null || viewModel.getProducts().getValue().isEmpty())) {
+                viewModel.filterByCategory(currentCategory);
+            }
         });
 
         viewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
@@ -149,11 +193,14 @@ public class HomeFragment extends Fragment {
             if (progressLoading != null) {
                 progressLoading.setVisibility(loading && (swipeRefreshHome == null || !swipeRefreshHome.isRefreshing()) ? View.VISIBLE : View.GONE);
             }
-            if (rvProducts != null) {
-                rvProducts.setVisibility(loading && (swipeRefreshHome == null || !swipeRefreshHome.isRefreshing()) ? View.GONE : View.VISIBLE);
-            }
             if (!loading && swipeRefreshHome != null) {
                 swipeRefreshHome.setRefreshing(false);
+            }
+            if (!loading) {
+                updateOfflineView();
+            } else if (rvProducts != null && (swipeRefreshHome == null || !swipeRefreshHome.isRefreshing())) {
+                rvProducts.setVisibility(View.GONE);
+                if (layoutHomeOffline != null) layoutHomeOffline.setVisibility(View.GONE);
             }
         });
 
@@ -168,8 +215,27 @@ public class HomeFragment extends Fragment {
             } else if (checkedIds.contains(R.id.chip_under35)) {
                 category = "under35";
             }
+            currentCategory = category;
+            if (!NetworkMonitor.isConnected(requireContext())) {
+                Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                updateOfflineView();
+                return;
+            }
             viewModel.filterByCategory(category);
         });
+    }
+
+    private void updateOfflineView() {
+        if (!isAdded()) return;
+        boolean offline = !NetworkMonitor.isConnected(requireContext());
+        boolean isEmpty = viewModel == null || viewModel.getProducts().getValue() == null || viewModel.getProducts().getValue().isEmpty();
+        boolean showOffline = offline && isEmpty;
+        if (layoutHomeOffline != null) {
+            layoutHomeOffline.setVisibility(showOffline ? View.VISIBLE : View.GONE);
+        }
+        if (rvProducts != null) {
+            rvProducts.setVisibility(showOffline ? View.GONE : View.VISIBLE);
+        }
     }
 
     private void updateGreeting() {
@@ -177,10 +243,13 @@ public class HomeFragment extends Fragment {
             return;
 
         FirebaseUser fbUser = FirebaseAuth.getInstance().getCurrentUser();
+        User cachedUser = AuthRepository.getInstance().getCachedUser();
         if (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty()) {
             tvGreetingName.setText(fbUser.getDisplayName());
-        } else if (MockRepository.getInstance().getCurrentUser() != null) {
-            tvGreetingName.setText(MockRepository.getInstance().getCurrentUser().getName());
+        } else if (cachedUser != null && cachedUser.getName() != null && !cachedUser.getName().trim().isEmpty()) {
+            tvGreetingName.setText(cachedUser.getName());
+        } else {
+            tvGreetingName.setText("Người dùng");
         }
     }
 

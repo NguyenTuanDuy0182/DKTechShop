@@ -17,6 +17,7 @@ import androidx.lifecycle.ViewModelProvider;
 import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.User;
+import com.ecommerce.dktechshop.utils.NetworkMonitor;
 import com.google.android.gms.auth.api.signin.GoogleSignIn;
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
 import com.google.android.gms.auth.api.signin.GoogleSignInClient;
@@ -58,6 +59,8 @@ public class AuthActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_auth);
 
+        NetworkMonitor.bindOfflineBanner(this, this, findViewById(R.id.banner_no_internet), null);
+
         authViewModel = new ViewModelProvider(this).get(AuthViewModel.class);
 
         tvTitle = findViewById(R.id.tv_auth_title);
@@ -80,6 +83,10 @@ public class AuthActivity extends AppCompatActivity {
         observeViewModel();
 
         btnSubmit.setOnClickListener(v -> {
+            if (!NetworkMonitor.isConnected(this)) {
+                Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                return;
+            }
             String email = etEmail.getText() != null ? etEmail.getText().toString().trim() : "";
             String password = etPassword.getText() != null ? etPassword.getText().toString().trim() : "";
 
@@ -161,12 +168,19 @@ public class AuthActivity extends AppCompatActivity {
                             authViewModel.loginWithGoogle(account.getIdToken());
                         }
                     } catch (ApiException e) {
-                        Toast.makeText(this, "Đăng nhập Google thất bại: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        String msg = (e.getStatusCode() == 12501)
+                                ? "Đã hủy đăng nhập Google"
+                                : "Đăng nhập Google thất bại. Vui lòng thử lại.";
+                        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
                     }
                 }
         );
 
         findViewById(R.id.btn_google_sign_in).setOnClickListener(v -> {
+            if (!NetworkMonitor.isConnected(this)) {
+                Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                return;
+            }
             googleLauncher.launch(googleSignInClient.getSignInIntent());
         });
     }
@@ -185,6 +199,10 @@ public class AuthActivity extends AppCompatActivity {
         builder.setView(input);
 
         builder.setPositiveButton("Gửi", (dialog, which) -> {
+            if (!NetworkMonitor.isConnected(this)) {
+                Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                return;
+            }
             String resetEmail = input.getText().toString().trim();
             if (resetEmail.isEmpty()) {
                 Toast.makeText(this, "Vui lòng nhập email", Toast.LENGTH_SHORT).show();

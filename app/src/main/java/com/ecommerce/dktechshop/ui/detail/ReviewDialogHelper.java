@@ -18,8 +18,10 @@ import androidx.annotation.Nullable;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.Review;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.data.model.User;
+import com.ecommerce.dktechshop.data.repository.AuthRepository;
 import com.ecommerce.dktechshop.data.repository.ProductRepository;
+import com.ecommerce.dktechshop.utils.NetworkMonitor;
 import com.google.android.material.button.MaterialButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -105,6 +107,10 @@ public class ReviewDialogHelper {
         btnCancel.setOnClickListener(v -> dialog.dismiss());
 
         btnSubmit.setOnClickListener(v -> {
+            if (!NetworkMonitor.isConnected(context)) {
+                Toast.makeText(context, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                return;
+            }
             String comment = etComment.getText() != null ? etComment.getText().toString().trim() : "";
             if (comment.isEmpty()) {
                 Toast.makeText(context, "Vui lòng nhập nội dung đánh giá của bạn", Toast.LENGTH_SHORT).show();
@@ -116,9 +122,15 @@ public class ReviewDialogHelper {
 
             FirebaseUser fbUser = FirebaseAuth.getInstance().getCurrentUser();
             String userId = fbUser != null ? fbUser.getUid() : "guest";
-            String userName = (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty())
-                    ? fbUser.getDisplayName()
-                    : MockRepository.getInstance().getCurrentUser().getName();
+            User cachedUser = AuthRepository.getInstance().getCachedUser();
+            String userName;
+            if (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty()) {
+                userName = fbUser.getDisplayName();
+            } else if (cachedUser != null && cachedUser.getName() != null && !cachedUser.getName().trim().isEmpty()) {
+                userName = cachedUser.getName();
+            } else {
+                userName = "Khách hàng";
+            }
 
             String reviewId = "rev_" + System.currentTimeMillis();
             String createdAt = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date());

@@ -108,6 +108,8 @@
 
     </LinearLayout>
 
+    <include layout="@layout/layout_no_internet_banner" />
+
     <!-- Results count bar -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -139,6 +141,7 @@
         android:padding="32dp">
 
         <ImageView
+            android:id="@+id/iv_search_empty_icon"
             android:layout_width="56dp"
             android:layout_height="56dp"
             android:src="@drawable/ic_search"
@@ -146,6 +149,7 @@
             android:contentDescription="Search empty icon" />
 
         <TextView
+            android:id="@+id/tv_search_empty_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
@@ -155,6 +159,7 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/tv_search_empty_subtitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"

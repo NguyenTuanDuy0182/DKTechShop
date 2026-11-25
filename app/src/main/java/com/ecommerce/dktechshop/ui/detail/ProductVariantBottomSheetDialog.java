@@ -17,7 +17,7 @@ import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.model.ProductVariant;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.utils.CurrencyUtils;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
@@ -92,7 +92,7 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
                 Chip chip = new Chip(requireContext());
                 String title = variant.getName();
                 if (variant.getExtraPrice() > 0) {
-                    title += " (+" + MockRepository.formatVND(variant.getExtraPrice()) + ")";
+                    title += " (+" + CurrencyUtils.formatVND(variant.getExtraPrice()) + ")";
                 }
                 chip.setText(title);
                 chip.setCheckable(true);
@@ -160,12 +160,12 @@ public class ProductVariantBottomSheetDialog extends BottomSheetDialogFragment {
         long total = unitPrice * quantity;
 
         if (tvPrice != null) {
-            tvPrice.setText(MockRepository.formatVND(unitPrice));
+            tvPrice.setText(CurrencyUtils.formatVND(unitPrice));
         }
 
         if (btnConfirm != null) {
             String action = isBuyNow ? "Mua ngay" : "Thêm vào giỏ";
-            btnConfirm.setText(action + " • " + MockRepository.formatVND(total));
+            btnConfirm.setText(action + " • " + CurrencyUtils.formatVND(total));
             if (isBuyNow) {
                 btnConfirm.setIconResource(R.drawable.ic_bolt);
             } else {

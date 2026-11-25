@@ -73,6 +73,8 @@
             </FrameLayout>
         </LinearLayout>
 
+        <include layout="@layout/layout_no_internet_banner" />
+
         <!-- Scrollable Details with SwipeRefreshLayout -->
         <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
             android:id="@+id/swipe_refresh_product_detail"

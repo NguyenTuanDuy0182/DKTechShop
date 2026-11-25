@@ -2,8 +2,15 @@ package com.ecommerce.dktechshop.data.repository;
 
 import com.ecommerce.dktechshop.data.model.Address;
 import com.ecommerce.dktechshop.data.model.User;
+import com.google.firebase.FirebaseNetworkException;
+import com.google.firebase.FirebaseTooManyRequestsException;
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException;
+import com.google.firebase.auth.FirebaseAuthInvalidUserException;
+import com.google.firebase.auth.FirebaseAuthRecentLoginRequiredException;
+import com.google.firebase.auth.FirebaseAuthUserCollisionException;
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
 import com.google.firebase.auth.UserProfileChangeRequest;
@@ -22,6 +29,7 @@ public class AuthRepository {
     private static AuthRepository instance;
     private final FirebaseAuth mAuth;
     private final FirebaseFirestore mFirestore;
+    private User cachedUser;
 
     public interface AuthCallback {
         void onSuccess(User user);
@@ -54,6 +62,14 @@ public class AuthRepository {
         return mAuth.getCurrentUser();
     }
 
+    public User getCachedUser() {
+        return cachedUser;
+    }
+
+    public void setCachedUser(User user) {
+        this.cachedUser = user;
+    }
+
     /**
      * Đăng ký tài khoản bằng email/mật khẩu và tự động lưu document vào users/{uid} trên Firestore.
      */
@@ -74,11 +90,13 @@ public class AuthRepository {
                         User newUser = new User(uid, name, email, "", "", new ArrayList<>(), true);
 
                         mFirestore.collection("users").document(uid).set(newUser)
-                                .addOnSuccessListener(aVoid -> callback.onSuccess(newUser))
+                                .addOnSuccessListener(aVoid -> {
+                                    cachedUser = newUser;
+                                    callback.onSuccess(newUser);
+                                })
                                 .addOnFailureListener(e -> callback.onFailure("Lỗi lưu hồ sơ: " + e.getMessage()));
                     } else {
-                        String msg = task.getException() != null ? task.getException().getMessage() : "Đăng ký thất bại";
-                        callback.onFailure(msg);
+                        callback.onFailure(mapAuthError(task.getException(), "Đăng ký thất bại. Vui lòng thử lại."));
                     }
                 });
     }
@@ -92,8 +110,7 @@ public class AuthRepository {
                     if (task.isSuccessful() && mAuth.getCurrentUser() != null) {
                         fetchCurrentUser(callback);
                     } else {
-                        String msg = task.getException() != null ? task.getException().getMessage() : "Đăng nhập thất bại";
-                        callback.onFailure(msg);
+                        callback.onFailure(mapAuthError(task.getException(), "Đăng nhập thất bại. Vui lòng thử lại."));
                     }
                 });
     }
@@ -108,8 +125,7 @@ public class AuthRepository {
                     if (task.isSuccessful() && mAuth.getCurrentUser() != null) {
                         fetchCurrentUser(callback);
                     } else {
-                        String msg = task.getException() != null ? task.getException().getMessage() : "Đăng nhập Google thất bại";
-                        callback.onFailure(msg);
+                        callback.onFailure(mapAuthError(task.getException(), "Đăng nhập Google thất bại. Vui lòng thử lại."));
                     }
                 });
     }
@@ -171,6 +187,7 @@ public class AuthRepository {
                         mFirestore.collection("users").document(uid).set(user);
                     }
                     user.setLoggedIn(true);
+                    cachedUser = user;
                     callback.onSuccess(user);
                 })
                 .addOnFailureListener(e -> callback.onFailure("Lỗi tải thông tin: " + e.getMessage()));
@@ -188,7 +205,7 @@ public class AuthRepository {
 
         fbUser.updatePassword(newPassword)
                 .addOnSuccessListener(aVoid -> callback.onSuccess())
-                .addOnFailureListener(e -> callback.onFailure(e.getMessage()));
+                .addOnFailureListener(e -> callback.onFailure(mapAuthError(e, "Không thể đổi mật khẩu. Vui lòng thử lại.")));
     }
 
     /**
@@ -211,7 +228,13 @@ public class AuthRepository {
         updates.put("phone", newPhone);
 
         mFirestore.collection("users").document(fbUser.getUid()).update(updates)
-                .addOnSuccessListener(aVoid -> callback.onSuccess())
+                .addOnSuccessListener(aVoid -> {
+                    if (cachedUser != null) {
+                        cachedUser.setName(newName);
+                        cachedUser.setPhone(newPhone);
+                    }
+                    callback.onSuccess();
+                })
                 .addOnFailureListener(e -> callback.onFailure(e.getMessage()));
     }
 
@@ -350,7 +373,40 @@ public class AuthRepository {
     public void sendPasswordResetEmail(String email, ActionCallback callback) {
         mAuth.sendPasswordResetEmail(email)
                 .addOnSuccessListener(aVoid -> callback.onSuccess())
-                .addOnFailureListener(e -> callback.onFailure(e.getMessage()));
+                .addOnFailureListener(e -> callback.onFailure(mapAuthError(e, "Không thể gửi email khôi phục mật khẩu.")));
+    }
+
+    /**
+     * Chuyển đổi các ngoại lệ Firebase Auth sang thông báo tiếng Việt thân thiện.
+     */
+    private String mapAuthError(Exception e, String fallback) {
+        if (e == null) return fallback;
+        if (e instanceof FirebaseNetworkException) {
+            return "Không có kết nối mạng. Vui lòng kiểm tra Wi-Fi hoặc dữ liệu di động.";
+        }
+        if (e instanceof FirebaseTooManyRequestsException) {
+            return "Thao tác quá nhiều lần. Vui lòng thử lại sau ít phút.";
+        }
+        if (e instanceof FirebaseAuthWeakPasswordException) {
+            return "Mật khẩu quá yếu. Vui lòng nhập ít nhất 6 ký tự.";
+        }
+        if (e instanceof FirebaseAuthUserCollisionException) {
+            return "Email này đã được đăng ký tài khoản.";
+        }
+        if (e instanceof FirebaseAuthInvalidUserException) {
+            return "Tài khoản không tồn tại hoặc đã bị vô hiệu hóa.";
+        }
+        if (e instanceof FirebaseAuthInvalidCredentialsException) {
+            String code = ((FirebaseAuthInvalidCredentialsException) e).getErrorCode();
+            if ("ERROR_INVALID_EMAIL".equals(code)) {
+                return "Định dạng email không hợp lệ.";
+            }
+            return "Email hoặc mật khẩu không chính xác.";
+        }
+        if (e instanceof FirebaseAuthRecentLoginRequiredException) {
+            return "Phiên đăng nhập đã cũ. Vui lòng đăng xuất và đăng nhập lại để tiếp tục.";
+        }
+        return fallback;
     }
 
     /**
@@ -358,6 +414,6 @@ public class AuthRepository {
      */
     public void signOut() {
         mAuth.signOut();
-        MockRepository.getInstance().getCurrentUser().setLoggedIn(false);
+        cachedUser = null;
     }
 }

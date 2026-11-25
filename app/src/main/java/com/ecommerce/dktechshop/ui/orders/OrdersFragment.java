@@ -5,8 +5,10 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -21,6 +23,7 @@ import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.repository.CartRepository;
+import com.ecommerce.dktechshop.utils.NetworkMonitor;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -34,6 +37,9 @@ public class OrdersFragment extends Fragment {
     private RecyclerView rvOrders;
     private SwipeRefreshLayout swipeRefreshOrders;
     private LinearLayout layoutEmptyOrders;
+    private ImageView ivEmptyOrdersIcon;
+    private TextView tvEmptyOrdersTitle;
+    private TextView tvEmptyOrdersSubtitle;
     private ProgressBar progressOrders;
 
     @Nullable
@@ -50,6 +56,9 @@ public class OrdersFragment extends Fragment {
         rvOrders = view.findViewById(R.id.rv_orders);
         swipeRefreshOrders = view.findViewById(R.id.swipe_refresh_orders);
         layoutEmptyOrders = view.findViewById(R.id.layout_empty_orders);
+        ivEmptyOrdersIcon = view.findViewById(R.id.iv_empty_orders_icon);
+        tvEmptyOrdersTitle = view.findViewById(R.id.tv_empty_orders_title);
+        tvEmptyOrdersSubtitle = view.findViewById(R.id.tv_empty_subtitle);
         progressOrders = view.findViewById(R.id.progress_orders);
         MaterialButton btnShopNow = view.findViewById(R.id.btn_shop_now);
 
@@ -60,6 +69,12 @@ public class OrdersFragment extends Fragment {
                     R.color.md_theme_light_error
             );
             swipeRefreshOrders.setOnRefreshListener(() -> {
+                if (!NetworkMonitor.isConnected(requireContext())) {
+                    swipeRefreshOrders.setRefreshing(false);
+                    Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                    updateEmptyStateText();
+                    return;
+                }
                 if (orderViewModel != null) {
                     orderViewModel.startListeningOrders();
                 }
@@ -80,6 +95,10 @@ public class OrdersFragment extends Fragment {
 
             @Override
             public void onCancelOrder(Order order) {
+                if (!NetworkMonitor.isConnected(requireContext())) {
+                    Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 new MaterialAlertDialogBuilder(requireContext())
                         .setTitle("Hủy đơn hàng")
                         .setMessage("Bạn có chắc chắn muốn hủy đơn hàng #" + order.getOrderId() + " không?")
@@ -93,6 +112,10 @@ public class OrdersFragment extends Fragment {
 
             @Override
             public void onConfirmReceived(Order order) {
+                if (!NetworkMonitor.isConnected(requireContext())) {
+                    Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 new MaterialAlertDialogBuilder(requireContext())
                         .setTitle("Xác nhận đã nhận hàng")
                         .setMessage("Bạn xác nhận đã nhận đầy đủ kiện hàng cho đơn #" + order.getOrderId() + "?")
@@ -106,6 +129,10 @@ public class OrdersFragment extends Fragment {
 
             @Override
             public void onReorder(Order order) {
+                if (!NetworkMonitor.isConnected(requireContext())) {
+                    Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 if (order == null || order.getItems() == null || order.getItems().isEmpty()) {
                     if (getActivity() instanceof MainActivity) {
                         ((MainActivity) getActivity()).navigateToTab(R.id.nav_home);
@@ -152,6 +179,21 @@ public class OrdersFragment extends Fragment {
             boolean isEmpty = (orders == null || orders.isEmpty());
             rvOrders.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
             layoutEmptyOrders.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+            updateEmptyStateText();
+        });
+
+        orderViewModel.getErrorMessage().observe(getViewLifecycleOwner(), error -> {
+            if (swipeRefreshOrders != null) {
+                swipeRefreshOrders.setRefreshing(false);
+            }
+            updateEmptyStateText();
+        });
+
+        NetworkMonitor.getInstance(requireContext()).observe(getViewLifecycleOwner(), connected -> {
+            updateEmptyStateText();
+            if (Boolean.TRUE.equals(connected) && (orderViewModel.getOrders().getValue() == null || orderViewModel.getOrders().getValue().isEmpty())) {
+                orderViewModel.startListeningOrders();
+            }
         });
 
         orderViewModel.getIsLoading().observe(getViewLifecycleOwner(), isLoading -> {
@@ -184,6 +226,22 @@ public class OrdersFragment extends Fragment {
                 orderViewModel.setStatusFilter("all");
             }
         });
+    }
+
+    private void updateEmptyStateText() {
+        if (!isAdded()) return;
+        boolean offline = !NetworkMonitor.isConnected(requireContext());
+        if (ivEmptyOrdersIcon != null) {
+            ivEmptyOrdersIcon.setImageResource(offline ? R.drawable.ic_wifi_off : R.drawable.ic_receipt);
+        }
+        if (tvEmptyOrdersTitle != null) {
+            tvEmptyOrdersTitle.setText(offline ? "Không có kết nối mạng" : "Chưa có đơn hàng nào");
+        }
+        if (tvEmptyOrdersSubtitle != null) {
+            tvEmptyOrdersSubtitle.setText(offline
+                    ? "Vui lòng kiểm tra Wi-Fi hoặc dữ liệu di động để tải đơn hàng."
+                    : "Các đơn hàng bạn đã đặt sẽ hiển thị và cập nhật trạng thái tại đây.");
+        }
     }
 
     @Override

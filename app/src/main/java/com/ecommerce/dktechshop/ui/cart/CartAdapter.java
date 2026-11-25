@@ -13,27 +13,38 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.CartItem;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.utils.CurrencyUtils;
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.checkbox.MaterialCheckBox;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class CartAdapter extends RecyclerView.Adapter<CartAdapter.ViewHolder> {
 
-    public interface OnCartItemQuantityChangeListener {
+    public interface OnCartItemActionListener {
         void onQuantityChanged(CartItem item, int delta);
+        void onSelectionChanged(CartItem item, boolean isSelected);
     }
 
     private List<CartItem> cartItems = new ArrayList<>();
-    private final OnCartItemQuantityChangeListener listener;
+    private Set<String> selectedIds = new HashSet<>();
+    private final OnCartItemActionListener listener;
 
-    public CartAdapter(OnCartItemQuantityChangeListener listener) {
+    public CartAdapter(OnCartItemActionListener listener) {
         this.listener = listener;
     }
 
     public void setCartItems(List<CartItem> items) {
         this.cartItems = items != null ? items : new ArrayList<>();
+        notifyDataSetChanged();
+    }
+
+    public void setSelectedIds(Set<String> ids) {
+        this.selectedIds = ids != null ? new HashSet<>(ids) : new HashSet<>();
         notifyDataSetChanged();
     }
 
@@ -49,8 +60,25 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.ViewHolder> {
         CartItem item = cartItems.get(position);
         holder.tvName.setText(item.getProductName());
         holder.tvVariant.setText(item.getVariant());
-        holder.tvPrice.setText(MockRepository.formatVND(item.getPrice()));
+        holder.tvPrice.setText(CurrencyUtils.formatVND(item.getPrice()));
         holder.tvQty.setText(String.valueOf(item.getQuantity()));
+
+        boolean isSelected = selectedIds.contains(item.getItemId());
+        holder.cbSelect.setOnCheckedChangeListener(null);
+        holder.cbSelect.setChecked(isSelected);
+        holder.cbSelect.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (listener != null) {
+                listener.onSelectionChanged(item, isChecked);
+            }
+        });
+
+        int strokeColor = ContextCompat.getColor(
+                holder.itemView.getContext(),
+                isSelected ? R.color.md_theme_light_primary : R.color.md_theme_light_outlineVariant
+        );
+        holder.cardItem.setStrokeColor(strokeColor);
+
+        holder.itemView.setOnClickListener(v -> holder.cbSelect.performClick());
 
         int fallbackIcon;
         if ("mouse".equalsIgnoreCase(item.getCategory())) {
@@ -61,7 +89,6 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.ViewHolder> {
             fallbackIcon = R.drawable.ic_devices;
         }
 
-        // Load ảnh sản phẩm bằng Glide qua cartItem.getThumbnailUrl()
         if (item.getThumbnailUrl() != null && !item.getThumbnailUrl().trim().isEmpty()) {
             holder.ivIcon.setImageTintList(null);
             Glide.with(holder.itemView.getContext())
@@ -90,6 +117,8 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.ViewHolder> {
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
+        MaterialCardView cardItem;
+        MaterialCheckBox cbSelect;
         ImageView ivIcon;
         TextView tvName;
         TextView tvVariant;
@@ -100,6 +129,8 @@ public class CartAdapter extends RecyclerView.Adapter<CartAdapter.ViewHolder> {
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
+            cardItem = itemView.findViewById(R.id.card_cart_item);
+            cbSelect = itemView.findViewById(R.id.cb_cart_item);
             ivIcon = itemView.findViewById(R.id.iv_cart_icon);
             tvName = itemView.findViewById(R.id.tv_cart_name);
             tvVariant = itemView.findViewById(R.id.tv_cart_variant);

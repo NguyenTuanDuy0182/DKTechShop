@@ -126,9 +126,6 @@ public class OrderRepository {
         // Thực thi Batch Write
         batch.commit()
                 .addOnSuccessListener(aVoid -> {
-                    // Cập nhật bộ nhớ đệm MockRepository nếu có
-                    MockRepository.getInstance().addOrder(order);
-
                     if (callback != null) callback.onSuccess(order);
                 })
                 .addOnFailureListener(e -> {
@@ -258,12 +255,6 @@ public class OrderRepository {
         return mFirestore.collection("orders").document(orderId)
                 .addSnapshotListener((snapshot, e) -> {
                     if (e != null) {
-                        for (Order o : MockRepository.getInstance().getOrders()) {
-                            if (orderId.equalsIgnoreCase(o.getOrderId())) {
-                                if (callback != null) callback.onSuccess(o);
-                                return;
-                            }
-                        }
                         if (callback != null) callback.onFailure(e.getMessage());
                         return;
                     }
@@ -275,13 +266,6 @@ public class OrderRepository {
                                 order.setOrderId(snapshot.getId());
                             }
                             if (callback != null) callback.onSuccess(order);
-                            return;
-                        }
-                    }
-
-                    for (Order o : MockRepository.getInstance().getOrders()) {
-                        if (orderId.equalsIgnoreCase(o.getOrderId())) {
-                            if (callback != null) callback.onSuccess(o);
                             return;
                         }
                     }
@@ -313,12 +297,10 @@ public class OrderRepository {
 
         batch.commit()
                 .addOnSuccessListener(aVoid -> {
-                    MockRepository.getInstance().updateOrderStatus(orderId, newStatus);
                     if (callback != null) callback.onSuccess();
                 })
                 .addOnFailureListener(e -> {
-                    MockRepository.getInstance().updateOrderStatus(orderId, newStatus);
-                    if (callback != null) callback.onSuccess();
+                    if (callback != null) callback.onFailure("Lỗi cập nhật đơn hàng: " + e.getMessage());
                 });
     }
 }

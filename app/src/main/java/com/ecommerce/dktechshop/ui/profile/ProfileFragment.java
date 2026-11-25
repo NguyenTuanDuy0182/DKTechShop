@@ -28,6 +28,7 @@ import com.ecommerce.dktechshop.data.model.Address;
 import com.ecommerce.dktechshop.data.model.User;
 import com.ecommerce.dktechshop.ui.auth.AuthActivity;
 import com.ecommerce.dktechshop.ui.auth.AuthViewModel;
+import com.ecommerce.dktechshop.utils.NetworkMonitor;
 import com.google.android.material.button.MaterialButton;
 
 import java.util.List;
@@ -82,6 +83,11 @@ public class ProfileFragment extends Fragment {
         if (swipeRefreshProfile != null) {
             swipeRefreshProfile.setColorSchemeResources(R.color.md_theme_light_primary);
             swipeRefreshProfile.setOnRefreshListener(() -> {
+                if (!NetworkMonitor.isConnected(requireContext())) {
+                    swipeRefreshProfile.setRefreshing(false);
+                    Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 authViewModel.loadCurrentUser();
                 authViewModel.loadAddresses();
                 swipeRefreshProfile.postDelayed(() -> {
@@ -140,6 +146,10 @@ public class ProfileFragment extends Fragment {
 
         // Đổi thông tin tên, số điện thoại lưu Firestore
         btnSaveName.setOnClickListener(v -> {
+            if (!NetworkMonitor.isConnected(requireContext())) {
+                Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                return;
+            }
             String name = etEditName.getText() != null ? etEditName.getText().toString().trim() : "";
             String phone = etEditPhone.getText() != null ? etEditPhone.getText().toString().trim() : "";
 
@@ -153,6 +163,10 @@ public class ProfileFragment extends Fragment {
 
         // Đổi mật khẩu qua FirebaseUser
         btnSavePass.setOnClickListener(v -> {
+            if (!NetworkMonitor.isConnected(requireContext())) {
+                Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                return;
+            }
             String newPass = etNewPass.getText() != null ? etNewPass.getText().toString().trim() : "";
             String confirmPass = etConfirmPass.getText() != null ? etConfirmPass.getText().toString().trim() : "";
 
@@ -398,6 +412,10 @@ public class ProfileFragment extends Fragment {
 
         btnCancel.setOnClickListener(v -> dialog.dismiss());
         btnSave.setOnClickListener(v -> {
+            if (!NetworkMonitor.isConnected(requireContext())) {
+                Toast.makeText(requireContext(), NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                return;
+            }
             String label = etLabel.getText() != null ? etLabel.getText().toString().trim() : "";
             String phone = etPhone.getText() != null ? etPhone.getText().toString().trim() : "";
             String detail = etDetail.getText() != null ? etDetail.getText().toString().trim() : "";

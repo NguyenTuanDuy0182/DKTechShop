@@ -5,7 +5,6 @@ import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
 import com.ecommerce.dktechshop.data.model.Order;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.ecommerce.dktechshop.data.repository.OrderRepository;
 import com.google.firebase.firestore.ListenerRegistration;
 
@@ -112,11 +111,6 @@ public class OrderViewModel extends ViewModel {
             public void onFailure(String error) {
                 isLoading.setValue(false);
                 errorMessage.setValue(error);
-
-                // Fallback nếu offline hoặc lỗi mạng
-                List<Order> fallback = MockRepository.getInstance().getOrders();
-                orders.setValue(fallback != null ? fallback : new ArrayList<>());
-                applyFilter();
             }
         });
     }

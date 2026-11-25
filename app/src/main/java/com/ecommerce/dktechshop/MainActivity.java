@@ -18,6 +18,7 @@ import com.ecommerce.dktechshop.ui.cart.CartViewModel;
 import com.ecommerce.dktechshop.ui.home.HomeFragment;
 import com.ecommerce.dktechshop.ui.orders.OrdersFragment;
 import com.ecommerce.dktechshop.ui.profile.ProfileFragment;
+import com.ecommerce.dktechshop.utils.NetworkMonitor;
 import com.google.android.material.badge.BadgeDrawable;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
@@ -27,6 +28,8 @@ public class MainActivity extends AppCompatActivity {
     private BottomNavigationView bottomNav;
     private BadgeDrawable cartBadge;
     private CartViewModel cartViewModel;
+    private AuthViewModel authViewModel;
+    private boolean hasLoadedInitialFragment = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,7 +45,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // Khởi tạo AuthViewModel để tải thông tin người dùng từ Firestore
-        new ViewModelProvider(this).get(AuthViewModel.class).loadCurrentUser();
+        authViewModel = new ViewModelProvider(this).get(AuthViewModel.class);
+        authViewModel.loadCurrentUser();
 
         WindowCompat.enableEdgeToEdge(getWindow());
         setContentView(R.layout.activity_main);
@@ -80,6 +84,17 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     cartBadge.setVisible(false);
                 }
+            }
+        });
+
+        // Giám sát kết nối mạng toàn cục cho tất cả tab chính
+        NetworkMonitor.bindOfflineBanner(this, this, findViewById(R.id.banner_no_internet), () -> {
+            if (authViewModel != null) {
+                authViewModel.loadCurrentUser();
+                authViewModel.loadAddresses();
+            }
+            if (cartViewModel != null) {
+                cartViewModel.startListeningCart();
             }
         });
 
@@ -121,9 +136,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void switchFragment(Fragment fragment) {
-        getSupportFragmentManager()
-                .beginTransaction()
-                .replace(R.id.nav_host_fragment, fragment)
-                .commit();
+        androidx.fragment.app.FragmentTransaction tx = getSupportFragmentManager().beginTransaction();
+        if (hasLoadedInitialFragment) {
+            tx.setCustomAnimations(R.anim.fade_in, R.anim.fade_out);
+        }
+        hasLoadedInitialFragment = true;
+        tx.replace(R.id.nav_host_fragment, fragment).commit();
     }
 }

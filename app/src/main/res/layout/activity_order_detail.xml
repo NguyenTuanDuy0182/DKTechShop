@@ -67,6 +67,8 @@
             android:textStyle="bold" />
     </LinearLayout>
 
+    <include layout="@layout/layout_no_internet_banner" />
+
     <!-- Scrollable Content with SwipeRefreshLayout -->
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipe_refresh_order_detail"

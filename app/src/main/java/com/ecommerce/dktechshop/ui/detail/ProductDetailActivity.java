@@ -23,10 +23,11 @@ import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.model.ProductVariant;
 import com.ecommerce.dktechshop.data.model.Review;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.ecommerce.dktechshop.data.repository.ProductRepository;
 import com.ecommerce.dktechshop.ui.cart.CartViewModel;
 import com.ecommerce.dktechshop.ui.viewmodel.ShopViewModel;
+import com.ecommerce.dktechshop.utils.CurrencyUtils;
+import com.ecommerce.dktechshop.utils.NetworkMonitor;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
@@ -59,14 +60,25 @@ public class ProductDetailActivity extends AppCompatActivity {
         cartViewModel = new ViewModelProvider(this).get(CartViewModel.class);
 
         swipeRefresh = findViewById(R.id.swipe_refresh_product_detail);
+        Runnable reloadProduct = () -> {
+            String prodId = (product != null) ? product.getId() : getIntent().getStringExtra(EXTRA_PRODUCT_ID);
+            if (prodId != null && !prodId.trim().isEmpty()) {
+                shopViewModel.loadProductById(prodId);
+                shopViewModel.loadReviews(prodId);
+            }
+        };
+
+        NetworkMonitor.bindOfflineBanner(this, this, findViewById(R.id.banner_no_internet), reloadProduct);
+
         if (swipeRefresh != null) {
             swipeRefresh.setColorSchemeResources(R.color.md_theme_light_primary);
             swipeRefresh.setOnRefreshListener(() -> {
-                String prodId = (product != null) ? product.getId() : getIntent().getStringExtra(EXTRA_PRODUCT_ID);
-                if (prodId != null && !prodId.trim().isEmpty()) {
-                    shopViewModel.loadProductById(prodId);
-                    shopViewModel.loadReviews(prodId);
+                if (!NetworkMonitor.isConnected(this)) {
+                    swipeRefresh.setRefreshing(false);
+                    Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                    return;
                 }
+                reloadProduct.run();
                 swipeRefresh.postDelayed(() -> {
                     if (swipeRefresh != null) {
                         swipeRefresh.setRefreshing(false);
@@ -150,11 +162,11 @@ public class ProductDetailActivity extends AppCompatActivity {
             }
         }
         tvStock.setText("Còn sẵn " + product.getStock() + " thiết bị tại kho");
-        tvPrice.setText(MockRepository.formatVND(product.getPrice()));
+        tvPrice.setText(CurrencyUtils.formatVND(product.getPrice()));
         if (product.getOriginalPrice() > product.getPrice() && product.getDiscountPercent() > 0) {
             tvOriginalPrice.setVisibility(View.VISIBLE);
             tvDiscount.setVisibility(View.VISIBLE);
-            tvOriginalPrice.setText(MockRepository.formatVND(product.getOriginalPrice()));
+            tvOriginalPrice.setText(CurrencyUtils.formatVND(product.getOriginalPrice()));
             tvOriginalPrice.setPaintFlags(tvOriginalPrice.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
             tvDiscount.setText("Tiết kiệm " + product.getDiscountPercent() + "%");
         } else {
@@ -203,7 +215,7 @@ public class ProductDetailActivity extends AppCompatActivity {
             Chip chip = new Chip(this);
             String title = v.getName();
             if (v.getExtraPrice() > 0) {
-                title += " (+" + MockRepository.formatVND(v.getExtraPrice()) + ")";
+                title += " (+" + CurrencyUtils.formatVND(v.getExtraPrice()) + ")";
             }
             chip.setText(title);
             chip.setCheckable(false);
@@ -269,6 +281,10 @@ public class ProductDetailActivity extends AppCompatActivity {
 
         if (btnWriteReview != null) {
             btnWriteReview.setOnClickListener(v -> {
+                if (!NetworkMonitor.isConnected(this)) {
+                    Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 shopViewModel.checkPurchaseEligibility(product.getId(), new ProductRepository.Callback<Boolean>() {
                     @Override
                     public void onSuccess(Boolean purchased) {
@@ -308,6 +324,10 @@ public class ProductDetailActivity extends AppCompatActivity {
         if (product == null) return;
         ProductVariantBottomSheetDialog sheet = new ProductVariantBottomSheetDialog(product, isBuyNow,
                 (p, variant, qty, buyNow) -> {
+                    if (!NetworkMonitor.isConnected(this)) {
+                        Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
                     String variantName = variant != null ? variant.getName() : "";
                     cartViewModel.addToCart(p, variantName, qty);
                     if (buyNow) {

@@ -14,7 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Product;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
+import com.ecommerce.dktechshop.utils.CurrencyUtils;
 import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
@@ -51,11 +51,11 @@ public class ProductGridAdapter extends RecyclerView.Adapter<ProductGridAdapter.
         Product p = productList.get(position);
         holder.tvBrand.setText(p.getBrand());
         holder.tvName.setText(p.getName());
-        holder.tvPrice.setText(MockRepository.formatVND(p.getPrice()));
+        holder.tvPrice.setText(CurrencyUtils.formatVND(p.getPrice()));
         if (p.getOriginalPrice() > p.getPrice() && p.getDiscountPercent() > 0) {
             holder.tvOriginalPrice.setVisibility(View.VISIBLE);
             holder.tvDiscountTag.setVisibility(View.VISIBLE);
-            holder.tvOriginalPrice.setText(MockRepository.formatVND(p.getOriginalPrice()));
+            holder.tvOriginalPrice.setText(CurrencyUtils.formatVND(p.getOriginalPrice()));
             holder.tvOriginalPrice.setPaintFlags(holder.tvOriginalPrice.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
             holder.tvDiscountTag.setText("-" + p.getDiscountPercent() + "%");
         } else {

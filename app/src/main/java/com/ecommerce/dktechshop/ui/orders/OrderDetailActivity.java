@@ -23,12 +23,13 @@ import com.ecommerce.dktechshop.MainActivity;
 import com.ecommerce.dktechshop.R;
 import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.OrderItem;
-import com.ecommerce.dktechshop.data.model.Product;
 import com.ecommerce.dktechshop.data.model.User;
+import com.ecommerce.dktechshop.data.repository.AuthRepository;
 import com.ecommerce.dktechshop.data.repository.CartRepository;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
 import com.ecommerce.dktechshop.data.repository.OrderRepository;
 import com.ecommerce.dktechshop.ui.detail.ReviewDialogHelper;
+import com.ecommerce.dktechshop.utils.CurrencyUtils;
+import com.ecommerce.dktechshop.utils.NetworkMonitor;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -89,48 +90,48 @@ public class OrderDetailActivity extends AppCompatActivity {
         // Lắng nghe cập nhật đơn hàng theo thời gian thực từ Firestore
         if (orderId != null && !orderId.trim().isEmpty()) {
             final String finalOrderId = orderId;
+            Runnable reloadOrder = () -> {
+                if (orderListenerRegistration != null) {
+                    orderListenerRegistration.remove();
+                }
+                orderListenerRegistration = OrderRepository.getInstance().listenSingleOrder(finalOrderId, new OrderRepository.OrderCallback() {
+                    @Override
+                    public void onSuccess(Order order) {
+                        if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+                        currentOrder = order;
+                        bindOrder(order);
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
+                        if (currentOrder == null) {
+                            Toast.makeText(OrderDetailActivity.this, "Lỗi tải đơn hàng: " + error, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+            };
+
+            NetworkMonitor.bindOfflineBanner(this, this, findViewById(R.id.banner_no_internet), reloadOrder);
+
             if (swipeRefresh != null) {
                 swipeRefresh.setColorSchemeResources(R.color.md_theme_light_primary);
                 swipeRefresh.setOnRefreshListener(() -> {
-                    if (orderListenerRegistration != null) {
-                        orderListenerRegistration.remove();
+                    if (!NetworkMonitor.isConnected(this)) {
+                        swipeRefresh.setRefreshing(false);
+                        Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                        return;
                     }
-                    orderListenerRegistration = OrderRepository.getInstance().listenSingleOrder(finalOrderId, new OrderRepository.OrderCallback() {
-                        @Override
-                        public void onSuccess(Order order) {
-                            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
-                            currentOrder = order;
-                            bindOrder(order);
-                        }
-
-                        @Override
-                        public void onFailure(String error) {
-                            if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
-                            Toast.makeText(OrderDetailActivity.this, "Lỗi tải đơn hàng: " + error, Toast.LENGTH_SHORT).show();
-                        }
-                    });
+                    reloadOrder.run();
                     swipeRefresh.postDelayed(() -> {
                         if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
                     }, 1000);
                 });
             }
 
-            orderListenerRegistration = OrderRepository.getInstance().listenSingleOrder(orderId, new OrderRepository.OrderCallback() {
-                @Override
-                public void onSuccess(Order order) {
-                    if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
-                    currentOrder = order;
-                    bindOrder(order);
-                }
-
-                @Override
-                public void onFailure(String error) {
-                    if (swipeRefresh != null) swipeRefresh.setRefreshing(false);
-                    if (currentOrder == null) {
-                        Toast.makeText(OrderDetailActivity.this, "Lỗi tải đơn hàng: " + error, Toast.LENGTH_SHORT).show();
-                    }
-                }
-            });
+            reloadOrder.run();
+        } else {
+            NetworkMonitor.bindOfflineBanner(this, this, findViewById(R.id.banner_no_internet), null);
         }
     }
 
@@ -188,15 +189,13 @@ public class OrderDetailActivity extends AppCompatActivity {
         String recipientName = order.getRecipientName();
         if (recipientName == null || recipientName.trim().isEmpty()) {
             FirebaseUser fbUser = FirebaseAuth.getInstance().getCurrentUser();
+            User u = AuthRepository.getInstance().getCachedUser();
             if (fbUser != null && fbUser.getDisplayName() != null && !fbUser.getDisplayName().trim().isEmpty()) {
                 recipientName = fbUser.getDisplayName();
+            } else if (u != null && u.getName() != null && !u.getName().trim().isEmpty()) {
+                recipientName = u.getName();
             } else {
-                User u = MockRepository.getInstance().getCurrentUser();
-                if (u != null && u.getName() != null && !u.getName().trim().isEmpty()) {
-                    recipientName = u.getName();
-                } else {
-                    recipientName = "Khách hàng";
-                }
+                recipientName = "Khách hàng";
             }
         }
         tvRecipientName.setText("Người nhận: " + recipientName);
@@ -204,7 +203,7 @@ public class OrderDetailActivity extends AppCompatActivity {
         // Hiển thị số điện thoại người nhận
         String recipientPhone = order.getRecipientPhone();
         if (recipientPhone == null || recipientPhone.trim().isEmpty()) {
-            User u = MockRepository.getInstance().getCurrentUser();
+            User u = AuthRepository.getInstance().getCachedUser();
             if (u != null && u.getPhone() != null && !u.getPhone().trim().isEmpty()) {
                 recipientPhone = u.getPhone();
             }
@@ -225,7 +224,7 @@ public class OrderDetailActivity extends AppCompatActivity {
                 if (cur != null) orderUserId = cur.getUid();
             }
             if (orderUserId != null && !orderUserId.trim().isEmpty()) {
-                com.ecommerce.dktechshop.data.repository.AuthRepository.getInstance().fetchUserById(orderUserId, new com.ecommerce.dktechshop.data.repository.AuthRepository.AuthCallback() {
+                AuthRepository.getInstance().fetchUserById(orderUserId, new AuthRepository.AuthCallback() {
                     @Override
                     public void onSuccess(User dbUser) {
                         if (dbUser != null) {
@@ -250,7 +249,7 @@ public class OrderDetailActivity extends AppCompatActivity {
         // Hiển thị địa chỉ giao nhận
         String address = (order.getShippingAddress() != null && !order.getShippingAddress().trim().isEmpty())
                 ? order.getShippingAddress().trim()
-                : "227 Nguyễn Văn Cừ, Phường 4, Quận 5, TP. Hồ Chí Minh";
+                : "Chưa cập nhật địa chỉ";
         if (!address.toLowerCase().startsWith("địa chỉ:")) {
             tvShippingAddress.setText("Địa chỉ: " + address);
         } else {
@@ -365,8 +364,8 @@ public class OrderDetailActivity extends AppCompatActivity {
         }
 
         // Cập nhật thông tin chi tiết thanh toán
-        tvSubtotal.setText(MockRepository.formatVND(order.getTotalAmount()));
-        tvTotalAmount.setText(MockRepository.formatVND(order.getTotalAmount()));
+        tvSubtotal.setText(CurrencyUtils.formatVND(order.getTotalAmount()));
+        tvTotalAmount.setText(CurrencyUtils.formatVND(order.getTotalAmount()));
     }
 
     private View createOrderItemView(OrderItem item) {
@@ -397,7 +396,7 @@ public class OrderDetailActivity extends AppCompatActivity {
         textCol.addView(tvVariant);
 
         TextView tvQtyPrice = new TextView(this);
-        tvQtyPrice.setText(item.getQuantity() + " × " + MockRepository.formatVND(item.getPrice()));
+        tvQtyPrice.setText(item.getQuantity() + " × " + CurrencyUtils.formatVND(item.getPrice()));
         tvQtyPrice.setTextSize(11);
         tvQtyPrice.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_onSurfaceVariant));
         tvQtyPrice.setPadding(0, 2, 0, 0);
@@ -406,7 +405,7 @@ public class OrderDetailActivity extends AppCompatActivity {
         row.addView(textCol);
 
         TextView tvItemTotal = new TextView(this);
-        tvItemTotal.setText(MockRepository.formatVND(item.getPrice() * item.getQuantity()));
+        tvItemTotal.setText(CurrencyUtils.formatVND(item.getPrice() * item.getQuantity()));
         tvItemTotal.setTextSize(13);
         tvItemTotal.setTextColor(ContextCompat.getColor(this, R.color.md_theme_light_onSurface));
         tvItemTotal.setTypeface(null, android.graphics.Typeface.BOLD);
@@ -446,13 +445,7 @@ public class OrderDetailActivity extends AppCompatActivity {
                 btnReview.setOnClickListener(v -> {
                     String pId = item.getProductId();
                     if (pId == null || pId.trim().isEmpty()) {
-                        for (Product prod : MockRepository.getInstance().getProducts()) {
-                            if (prod.getName().equalsIgnoreCase(item.getProductName())) {
-                                pId = prod.getId();
-                                break;
-                            }
-                        }
-                        if (pId == null || pId.trim().isEmpty()) pId = "prod_custom";
+                        pId = "prod_custom";
                     }
 
                     ReviewDialogHelper.showReviewDialog(this, pId, item.getProductName(), item.getVariant(), currentOrder, review -> {
@@ -475,6 +468,10 @@ public class OrderDetailActivity extends AppCompatActivity {
 
     private void handleCancelOrder() {
         if (currentOrder == null) return;
+        if (!NetworkMonitor.isConnected(this)) {
+            Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+            return;
+        }
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Hủy đơn hàng")
                 .setMessage("Bạn có chắc chắn muốn hủy đơn hàng #" + currentOrder.getOrderId() + " không?")
@@ -499,6 +496,10 @@ public class OrderDetailActivity extends AppCompatActivity {
 
     private void handleConfirmReceived() {
         if (currentOrder == null) return;
+        if (!NetworkMonitor.isConnected(this)) {
+            Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+            return;
+        }
         new MaterialAlertDialogBuilder(this)
                 .setTitle("Xác nhận đã nhận hàng")
                 .setMessage("Bạn xác nhận đã nhận đầy đủ kiện hàng cho đơn #" + currentOrder.getOrderId() + "?")
@@ -522,6 +523,10 @@ public class OrderDetailActivity extends AppCompatActivity {
     }
 
     private void handleReorder() {
+        if (!NetworkMonitor.isConnected(this)) {
+            Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (currentOrder == null || currentOrder.getItems() == null || currentOrder.getItems().isEmpty()) {
             Toast.makeText(this, "Không có sản phẩm để mua lại", Toast.LENGTH_SHORT).show();
             return;

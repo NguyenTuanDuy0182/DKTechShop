@@ -58,14 +58,11 @@ public class ProductRepository {
                             Log.e(TAG, "Error parsing product: " + doc.getId(), e);
                         }
                     }
-                    if (list.isEmpty()) {
-                        list = MockRepository.getInstance().getProducts();
-                    }
                     callback.onSuccess(list);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "getAllProducts failed", e);
-                    callback.onSuccess(MockRepository.getInstance().getProducts());
+                    callback.onError(e);
                 });
     }
 
@@ -98,14 +95,11 @@ public class ProductRepository {
                             Log.e(TAG, "Error parsing product: " + doc.getId(), e);
                         }
                     }
-                    if (list.isEmpty()) {
-                        list = MockRepository.getInstance().filterProducts(category);
-                    }
                     callback.onSuccess(list);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "getProductsByCategory failed", e);
-                    callback.onSuccess(MockRepository.getInstance().filterProducts(category));
+                    callback.onError(e);
                 });
     }
 
@@ -126,21 +120,9 @@ public class ProductRepository {
                             Log.e(TAG, "Error parsing product " + productId, e);
                         }
                     }
-                    Product fallback = MockRepository.getInstance().getProductById(productId);
-                    if (fallback != null) {
-                        callback.onSuccess(fallback);
-                    } else {
-                        callback.onError(new Exception("Product not found"));
-                    }
+                    callback.onError(new Exception("Không tìm thấy sản phẩm"));
                 })
-                .addOnFailureListener(e -> {
-                    Product fallback = MockRepository.getInstance().getProductById(productId);
-                    if (fallback != null) {
-                        callback.onSuccess(fallback);
-                    } else {
-                        callback.onError(e);
-                    }
-                });
+                .addOnFailureListener(callback::onError);
     }
 
     public void getReviews(String productId, Callback<List<Review>> callback) {
@@ -169,14 +151,11 @@ public class ProductRepository {
                             Log.e(TAG, "Error parsing review: " + doc.getId(), e);
                         }
                     }
-                    if (list.isEmpty()) {
-                        list = MockRepository.getInstance().getReviews(productId);
-                    }
                     callback.onSuccess(list);
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "getReviews failed, using mock", e);
-                    callback.onSuccess(MockRepository.getInstance().getReviews(productId));
+                    Log.e(TAG, "getReviews failed", e);
+                    callback.onError(e);
                 });
     }
 
@@ -241,20 +220,17 @@ public class ProductRepository {
                                 }
                             });
 
-                    MockRepository.getInstance().addReview(review);
                     if (callback != null) callback.onSuccess(null);
                 })
                 .addOnFailureListener(e -> {
-                    // Fallback sang MockRepository
-                    MockRepository.getInstance().addReview(review);
-                    if (callback != null) callback.onSuccess(null);
+                    if (callback != null) callback.onError(e);
                 });
     }
 
     public void checkUserPurchasedProduct(String productId, Callback<Boolean> callback) {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user == null) {
-            callback.onSuccess(MockRepository.getInstance().hasUserPurchasedProduct(productId));
+            callback.onSuccess(false);
             return;
         }
 
@@ -281,13 +257,8 @@ public class ProductRepository {
                             if (purchased) break;
                         } catch (Exception ignored) {}
                     }
-                    if (!purchased) {
-                        purchased = MockRepository.getInstance().hasUserPurchasedProduct(productId);
-                    }
                     callback.onSuccess(purchased);
                 })
-                .addOnFailureListener(e -> {
-                    callback.onSuccess(MockRepository.getInstance().hasUserPurchasedProduct(productId));
-                });
+                .addOnFailureListener(callback::onError);
     }
 }

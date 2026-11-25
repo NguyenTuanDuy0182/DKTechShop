@@ -7,7 +7,6 @@ import androidx.lifecycle.ViewModel;
 import com.ecommerce.dktechshop.data.model.Address;
 import com.ecommerce.dktechshop.data.model.User;
 import com.ecommerce.dktechshop.data.repository.AuthRepository;
-import com.ecommerce.dktechshop.data.repository.MockRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -67,7 +66,6 @@ public class AuthViewModel extends ViewModel {
                 @Override
                 public void onSuccess(User user) {
                     currentUser.setValue(user);
-                    MockRepository.getInstance().setCurrentUser(user);
                     loadAddresses();
                 }
 
@@ -90,7 +88,6 @@ public class AuthViewModel extends ViewModel {
             public void onSuccess(User user) {
                 isLoading.setValue(false);
                 currentUser.setValue(user);
-                MockRepository.getInstance().setCurrentUser(user);
                 loadAddresses();
                 authSuccess.setValue(true);
             }
@@ -114,7 +111,6 @@ public class AuthViewModel extends ViewModel {
             public void onSuccess(User user) {
                 isLoading.setValue(false);
                 currentUser.setValue(user);
-                MockRepository.getInstance().setCurrentUser(user);
                 loadAddresses();
                 authSuccess.setValue(true);
             }
@@ -138,7 +134,6 @@ public class AuthViewModel extends ViewModel {
             public void onSuccess(User user) {
                 isLoading.setValue(false);
                 currentUser.setValue(user);
-                MockRepository.getInstance().setCurrentUser(user);
                 loadAddresses();
                 authSuccess.setValue(true);
             }
@@ -166,7 +161,6 @@ public class AuthViewModel extends ViewModel {
                     user.setName(name);
                     user.setPhone(phone);
                     currentUser.setValue(user);
-                    MockRepository.getInstance().setCurrentUser(user);
                 }
                 successMessage.setValue("Đã cập nhật thông tin thành công!");
             }
@@ -239,7 +233,6 @@ public class AuthViewModel extends ViewModel {
             public void onSuccess() {
                 isLoading.setValue(false);
                 successMessage.setValue("Đã xóa địa chỉ!");
-                MockRepository.getInstance().deleteAddress(addressId);
                 loadAddresses();
             }
 
@@ -259,7 +252,6 @@ public class AuthViewModel extends ViewModel {
             public void onSuccess() {
                 isLoading.setValue(false);
                 successMessage.setValue("Đã cập nhật địa chỉ thành công!");
-                MockRepository.getInstance().updateAddress(address);
                 loadAddresses();
             }
 
@@ -303,7 +295,7 @@ public class AuthViewModel extends ViewModel {
                 User user = currentUser.getValue();
                 if (user != null) {
                     user.setAddresses(list);
-                    MockRepository.getInstance().setCurrentUser(user);
+                    authRepository.setCachedUser(user);
                 }
             }
 
