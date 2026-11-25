@@ -443,6 +443,14 @@ public class OrderDetailActivity extends AppCompatActivity {
                 btnReview.setBackgroundColor(ContextCompat.getColor(this, R.color.md_theme_light_primaryContainer));
 
                 btnReview.setOnClickListener(v -> {
+                    if (!NetworkMonitor.isConnected(this)) {
+                        Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (item.isReviewed()) {
+                        Toast.makeText(this, "Bạn đã đánh giá sản phẩm này cho đơn hàng này rồi", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
                     String pId = item.getProductId();
                     if (pId == null || pId.trim().isEmpty()) {
                         pId = "prod_custom";

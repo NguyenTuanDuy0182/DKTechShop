@@ -222,6 +222,10 @@ public class ShopViewModel extends ViewModel {
         repository.checkUserPurchasedProduct(productId, callback);
     }
 
+    public void checkReviewEligibility(String productId, ProductRepository.Callback<ProductRepository.ReviewEligibility> callback) {
+        repository.checkReviewEligibility(productId, callback);
+    }
+
     public void submitReview(Review review, Order order, Runnable onSuccess, Runnable onError) {
         isLoading.setValue(true);
         repository.addReview(review, order, new ProductRepository.Callback<Void>() {

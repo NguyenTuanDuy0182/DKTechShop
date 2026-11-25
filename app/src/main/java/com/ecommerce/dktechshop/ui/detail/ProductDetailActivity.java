@@ -285,25 +285,34 @@ public class ProductDetailActivity extends AppCompatActivity {
                     Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
                     return;
                 }
-                shopViewModel.checkPurchaseEligibility(product.getId(), new ProductRepository.Callback<Boolean>() {
+                shopViewModel.checkReviewEligibility(product.getId(), new ProductRepository.Callback<ProductRepository.ReviewEligibility>() {
                     @Override
-                    public void onSuccess(Boolean purchased) {
-                        if (Boolean.TRUE.equals(purchased)) {
+                    public void onSuccess(ProductRepository.ReviewEligibility eligibility) {
+                        if (eligibility != null && eligibility.status == ProductRepository.ReviewEligibility.Status.ELIGIBLE
+                                && eligibility.eligibleOrder != null) {
+                            String variant = eligibility.eligibleItem != null && eligibility.eligibleItem.getVariant() != null
+                                    ? eligibility.eligibleItem.getVariant() : "";
                             ReviewDialogHelper.showReviewDialog(
                                     ProductDetailActivity.this,
                                     product.getId(),
                                     product.getName(),
-                                    "",
-                                    null,
+                                    variant,
+                                    eligibility.eligibleOrder,
                                     review -> {
                                         shopViewModel.loadReviews(product.getId());
                                         shopViewModel.loadProductById(product.getId());
                                     }
                             );
+                        } else if (eligibility != null && eligibility.status == ProductRepository.ReviewEligibility.Status.ALREADY_REVIEWED) {
+                            new MaterialAlertDialogBuilder(ProductDetailActivity.this)
+                                    .setTitle("Đã đánh giá")
+                                    .setMessage("Bạn đã đánh giá sản phẩm này cho đơn hàng đã giao. Mỗi đơn hàng chỉ được đánh giá 1 lần duy nhất.")
+                                    .setPositiveButton("Đã hiểu", null)
+                                    .show();
                         } else {
                             new MaterialAlertDialogBuilder(ProductDetailActivity.this)
                                     .setTitle("Chưa thể đánh giá")
-                                    .setMessage("Bạn chỉ có thể viết đánh giá sau khi đã đặt mua và nhận hàng thành công sản phẩm này.")
+                                    .setMessage("Bạn chỉ có thể viết đánh giá sau khi đơn hàng chứa sản phẩm này đã được giao thành công.")
                                     .setPositiveButton("Đã hiểu", null)
                                     .show();
                         }

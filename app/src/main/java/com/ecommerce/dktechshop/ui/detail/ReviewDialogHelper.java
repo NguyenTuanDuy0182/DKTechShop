@@ -132,9 +132,9 @@ public class ReviewDialogHelper {
                 userName = "Khách hàng";
             }
 
-            String reviewId = "rev_" + System.currentTimeMillis();
-            String createdAt = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date());
             String orderId = order != null ? order.getOrderId() : "";
+            String reviewId = ProductRepository.generateReviewId(orderId, productId, variant);
+            String createdAt = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date());
 
             Review review = new Review(
                     reviewId,
