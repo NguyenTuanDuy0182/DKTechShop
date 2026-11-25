@@ -191,7 +191,18 @@ public class CartFragment extends Fragment {
                 return;
             }
 
-            cartViewModel.checkout(shipping.address, selectedPayment, shipping.name, shipping.phone);
+            if ("COD".equalsIgnoreCase(selectedPayment)) {
+                cartViewModel.checkout(shipping.address, selectedPayment, shipping.name, shipping.phone);
+            } else {
+                long totalAmount = CartViewModel.calculateSelectedTotal(
+                        selectedItems, cartViewModel.getSelectedItemIds().getValue());
+                String orderId = CartViewModel.generateOrderId();
+                PaymentDemoDialog.show(requireContext(), selectedPayment, orderId, totalAmount, shipping.phone, () -> {
+                    if (isAdded()) {
+                        cartViewModel.checkout(shipping.address, selectedPayment, shipping.name, shipping.phone, orderId);
+                    }
+                });
+            }
         });
 
         observeViewModel();

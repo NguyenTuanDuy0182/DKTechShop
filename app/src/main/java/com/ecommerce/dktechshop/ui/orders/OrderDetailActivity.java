@@ -264,6 +264,8 @@ public class OrderDetailActivity extends AppCompatActivity {
             tvPaymentDesc.setText("Thanh toán bằng tiền mặt khi nhận hàng tận nơi.");
         } else if (payment.toLowerCase().contains("vnpay")) {
             tvPaymentDesc.setText("Đã hoàn tất thanh toán qua cổng điện tử VNPay QR.");
+        } else if (payment.toLowerCase().contains("momo")) {
+            tvPaymentDesc.setText("Đã hoàn tất thanh toán qua Ví điện tử MoMo.");
         } else {
             tvPaymentDesc.setText("Phương thức thanh toán đã được xác nhận.");
         }

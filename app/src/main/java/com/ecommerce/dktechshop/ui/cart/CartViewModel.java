@@ -322,11 +322,19 @@ public class CartViewModel extends ViewModel {
      * Đặt hàng & Thanh toán các sản phẩm đã được chọn bằng Batch Write an toàn.
      * Chỉ tạo đơn và xóa khỏi giỏ những sản phẩm được tick chọn.
      */
+    public static String generateOrderId() {
+        return "TG-2026-" + (1000 + (int) (Math.random() * 9000));
+    }
+
     public void checkout(Address shippingAddress, String paymentMethod) {
-        checkout(shippingAddress, paymentMethod, "", "");
+        checkout(shippingAddress, paymentMethod, "", "", null);
     }
 
     public void checkout(Address shippingAddress, String paymentMethod, String recipientName, String recipientPhone) {
+        checkout(shippingAddress, paymentMethod, recipientName, recipientPhone, null);
+    }
+
+    public void checkout(Address shippingAddress, String paymentMethod, String recipientName, String recipientPhone, String preGeneratedOrderId) {
         List<CartItem> selectedItems = getSelectedCartItems();
         if (selectedItems.isEmpty()) {
             errorMessage.setValue("Vui lòng chọn ít nhất 1 sản phẩm để đặt hàng");
@@ -367,7 +375,9 @@ public class CartViewModel extends ViewModel {
             total += ci.getPrice() * ci.getQuantity();
         }
 
-        String orderId = "TG-2026-" + (1000 + (int) (Math.random() * 9000));
+        String orderId = (preGeneratedOrderId != null && !preGeneratedOrderId.trim().isEmpty())
+                ? preGeneratedOrderId.trim()
+                : generateOrderId();
         String createdAt = new SimpleDateFormat("dd/MM/yyyy • HH:mm", Locale.getDefault()).format(new Date());
 
         Order newOrder = new Order(
