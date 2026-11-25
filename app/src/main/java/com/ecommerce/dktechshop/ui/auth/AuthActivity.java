@@ -2,8 +2,11 @@ package com.ecommerce.dktechshop.ui.auth;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.util.Patterns;
+import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -186,33 +189,61 @@ public class AuthActivity extends AppCompatActivity {
     }
 
     private void showForgotPasswordDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Quên mật khẩu");
-        builder.setMessage("Nhập email tài khoản của bạn để nhận liên kết đặt lại mật khẩu:");
+        View dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_forgot_password, null);
+        TextInputLayout tilForgotEmail = dialogView.findViewById(R.id.til_forgot_email);
+        TextInputEditText etForgotEmail = dialogView.findViewById(R.id.et_forgot_email);
+        MaterialButton btnCancel = dialogView.findViewById(R.id.btn_forgot_cancel);
+        MaterialButton btnSend = dialogView.findViewById(R.id.btn_forgot_send);
 
-        final EditText input = new EditText(this);
-        input.setHint("Nhập email của bạn");
         String currentEmail = etEmail.getText() != null ? etEmail.getText().toString().trim() : "";
         if (!currentEmail.isEmpty()) {
-            input.setText(currentEmail);
+            etForgotEmail.setText(currentEmail);
+            etForgotEmail.setSelection(currentEmail.length());
         }
-        builder.setView(input);
 
-        builder.setPositiveButton("Gửi", (dialog, which) -> {
+        etForgotEmail.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int count, int after) {
+                if (tilForgotEmail.getError() != null) {
+                    tilForgotEmail.setError(null);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnSend.setOnClickListener(v -> {
             if (!NetworkMonitor.isConnected(this)) {
                 Toast.makeText(this, NetworkMonitor.NO_INTERNET_MESSAGE, Toast.LENGTH_SHORT).show();
                 return;
             }
-            String resetEmail = input.getText().toString().trim();
+            String resetEmail = etForgotEmail.getText() != null ? etForgotEmail.getText().toString().trim() : "";
             if (resetEmail.isEmpty()) {
-                Toast.makeText(this, "Vui lòng nhập email", Toast.LENGTH_SHORT).show();
+                tilForgotEmail.setError("Vui lòng nhập email của bạn");
+                return;
+            }
+            if (!Patterns.EMAIL_ADDRESS.matcher(resetEmail).matches()) {
+                tilForgotEmail.setError("Định dạng email không hợp lệ");
                 return;
             }
             authViewModel.sendPasswordReset(resetEmail);
+            dialog.dismiss();
         });
 
-        builder.setNegativeButton("Hủy", (dialog, which) -> dialog.cancel());
-        builder.show();
+        dialog.show();
     }
 
     private void toggleAuthMode() {
