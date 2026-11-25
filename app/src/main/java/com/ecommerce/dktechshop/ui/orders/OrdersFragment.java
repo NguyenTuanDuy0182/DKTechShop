@@ -186,6 +186,9 @@ public class OrdersFragment extends Fragment {
             if (swipeRefreshOrders != null) {
                 swipeRefreshOrders.setRefreshing(false);
             }
+            if (error != null && !error.isEmpty() && NetworkMonitor.isConnected(requireContext())) {
+                Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show();
+            }
             updateEmptyStateText();
         });
 

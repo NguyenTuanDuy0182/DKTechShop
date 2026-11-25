@@ -5,11 +5,14 @@ import static org.junit.Assert.assertNotNull;
 
 import com.ecommerce.dktechshop.data.model.Order;
 import com.ecommerce.dktechshop.data.model.OrderItem;
+import com.ecommerce.dktechshop.data.repository.OrderRepository;
 
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public class OrderTest {
 
@@ -49,5 +52,19 @@ public class OrderTest {
         assertEquals("123 Nguyễn Huệ, Q1, TP.HCM", order.getShippingAddress());
         assertEquals(3590000L, order.getTotalAmount());
         assertEquals(1, order.getItems().size());
+    }
+
+    @Test
+    public void testAggregateOrderItemQuantitiesForStockRestore() {
+        List<OrderItem> items = Arrays.asList(
+                new OrderItem("prod_mouse", "Mouse", "Đen", 1000000L, 1),
+                new OrderItem("prod_mouse", "Mouse", "Trắng", 1000000L, 2),
+                new OrderItem("prod_kb", "Keyboard", "Đỏ", 2000000L, 1)
+        );
+
+        Map<String, Long> restoreMap = OrderRepository.aggregateOrderItemQuantities(items);
+        assertEquals(2, restoreMap.size());
+        assertEquals(Long.valueOf(3L), restoreMap.get("prod_mouse"));
+        assertEquals(Long.valueOf(1L), restoreMap.get("prod_kb"));
     }
 }

@@ -2,6 +2,7 @@ package com.ecommerce.dktechshop.data.repository;
 
 import com.ecommerce.dktechshop.data.model.CartItem;
 import com.ecommerce.dktechshop.data.model.Order;
+import com.ecommerce.dktechshop.data.model.OrderItem;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
@@ -102,14 +103,13 @@ public class OrderRepository {
                 .document(order.getOrderId());
         batch.set(userOrderRef, order);
 
-        // 2. Giảm số lượng tồn kho stock tương ứng tại collection products
-        for (CartItem item : cartItems) {
-            if (item.getProductId() != null && !item.getProductId().trim().isEmpty()) {
-                DocumentReference productDocRef = mFirestore.collection("products").document(item.getProductId());
-                Map<String, Object> stockUpdate = new HashMap<>();
-                stockUpdate.put("stock", FieldValue.increment(-item.getQuantity()));
-                batch.set(productDocRef, stockUpdate, SetOptions.merge());
-            }
+        // 2. Giảm số lượng tồn kho stock tương ứng tại collection products (gộp theo productId nếu mua nhiều phân loại)
+        Map<String, Long> decrementMap = aggregateCartItemQuantities(cartItems);
+        for (Map.Entry<String, Long> entry : decrementMap.entrySet()) {
+            DocumentReference productDocRef = mFirestore.collection("products").document(entry.getKey());
+            Map<String, Object> stockUpdate = new HashMap<>();
+            stockUpdate.put("stock", FieldValue.increment(-entry.getValue()));
+            batch.set(productDocRef, stockUpdate, SetOptions.merge());
         }
 
         // 3. Xóa sạch các món đã đặt trong subcollection users/{uid}/cart
@@ -274,10 +274,40 @@ public class OrderRepository {
                 });
     }
 
+    public static Map<String, Long> aggregateCartItemQuantities(List<CartItem> items) {
+        Map<String, Long> totals = new HashMap<>();
+        if (items == null) return totals;
+        for (CartItem item : items) {
+            if (item != null && item.getProductId() != null && !item.getProductId().trim().isEmpty() && item.getQuantity() > 0) {
+                String pid = item.getProductId().trim();
+                totals.put(pid, totals.getOrDefault(pid, 0L) + item.getQuantity());
+            }
+        }
+        return totals;
+    }
+
+    public static Map<String, Long> aggregateOrderItemQuantities(List<OrderItem> items) {
+        Map<String, Long> totals = new HashMap<>();
+        if (items == null) return totals;
+        for (OrderItem item : items) {
+            if (item != null && item.getProductId() != null && !item.getProductId().trim().isEmpty() && item.getQuantity() > 0) {
+                String pid = item.getProductId().trim();
+                totals.put(pid, totals.getOrDefault(pid, 0L) + item.getQuantity());
+            }
+        }
+        return totals;
+    }
+
     /**
-     * Cập nhật trạng thái đơn hàng (Đang xử lý -> Đang giao -> Đã giao / Hoàn thành -> Đã hủy)
+     * Cập nhật trạng thái đơn hàng (Đang xử lý -> Đang giao -> Đã giao / Hoàn thành -> Đã hủy).
+     * Khi hủy đơn sẽ dùng Firestore Transaction để hoàn trả tồn kho (stock) an toàn, tránh cộng trùng.
      */
     public void updateOrderStatus(String orderId, String newStatus, ActionCallback callback) {
+        if (newStatus != null && "Đã hủy".equalsIgnoreCase(newStatus.trim())) {
+            cancelOrderWithStockRestore(orderId, callback);
+            return;
+        }
+
         FirebaseUser user = mAuth.getCurrentUser();
         String uid = (user != null) ? user.getUid() : "";
 
@@ -302,5 +332,78 @@ public class OrderRepository {
                 .addOnFailureListener(e -> {
                     if (callback != null) callback.onFailure("Lỗi cập nhật đơn hàng: " + e.getMessage());
                 });
+    }
+
+    /**
+     * Hủy đơn hàng nguyên tử bằng Firestore Transaction:
+     * 1. Kiểm tra trạng thái hiện tại chưa bị hủy và chưa giao.
+     * 2. Cập nhật status = "Đã hủy" ở cả orders/{orderId} và users/{uid}/orders/{orderId}.
+     * 3. Hoàn trả lại số lượng tồn kho (stock) tương ứng cho từng sản phẩm trong products/{productId}.
+     */
+    private void cancelOrderWithStockRestore(String orderId, ActionCallback callback) {
+        if (orderId == null || orderId.trim().isEmpty()) {
+            if (callback != null) callback.onFailure("Mã đơn hàng không hợp lệ");
+            return;
+        }
+
+        FirebaseUser user = mAuth.getCurrentUser();
+        String uid = (user != null) ? user.getUid() : "";
+        DocumentReference rootOrderRef = mFirestore.collection("orders").document(orderId);
+
+        mFirestore.runTransaction(transaction -> {
+            DocumentSnapshot snapshot = transaction.get(rootOrderRef);
+            if (!snapshot.exists() && !uid.isEmpty()) {
+                DocumentReference userOrderRef = mFirestore.collection("users")
+                        .document(uid)
+                        .collection("orders")
+                        .document(orderId);
+                snapshot = transaction.get(userOrderRef);
+            }
+
+            if (!snapshot.exists()) {
+                throw new IllegalStateException("Không tìm thấy đơn hàng #" + orderId);
+            }
+
+            Order existing = snapshot.toObject(Order.class);
+            String currentStatus = (existing != null && existing.getStatus() != null)
+                    ? existing.getStatus().trim() : "";
+
+            if ("Đã hủy".equalsIgnoreCase(currentStatus)) {
+                throw new IllegalStateException("Đơn hàng này đã được hủy trước đó");
+            }
+            if ("Đã giao".equalsIgnoreCase(currentStatus) || "Hoàn thành".equalsIgnoreCase(currentStatus)) {
+                throw new IllegalStateException("Không thể hủy đơn hàng đã giao");
+            }
+
+            Map<String, Object> update = new HashMap<>();
+            update.put("status", "Đã hủy");
+            transaction.set(rootOrderRef, update, SetOptions.merge());
+
+            String orderUid = !uid.isEmpty() ? uid
+                    : (existing != null && existing.getUserId() != null ? existing.getUserId() : "");
+            if (!orderUid.isEmpty()) {
+                DocumentReference userOrderRef = mFirestore.collection("users")
+                        .document(orderUid)
+                        .collection("orders")
+                        .document(orderId);
+                transaction.set(userOrderRef, update, SetOptions.merge());
+            }
+
+            if (existing != null && existing.getItems() != null) {
+                Map<String, Long> restoreMap = aggregateOrderItemQuantities(existing.getItems());
+                for (Map.Entry<String, Long> entry : restoreMap.entrySet()) {
+                    DocumentReference productDocRef = mFirestore.collection("products").document(entry.getKey());
+                    Map<String, Object> stockRestore = new HashMap<>();
+                    stockRestore.put("stock", FieldValue.increment(entry.getValue()));
+                    transaction.set(productDocRef, stockRestore, SetOptions.merge());
+                }
+            }
+            return null;
+        }).addOnSuccessListener(aVoid -> {
+            if (callback != null) callback.onSuccess();
+        }).addOnFailureListener(e -> {
+            String msg = (e != null && e.getMessage() != null) ? e.getMessage() : "Lỗi hủy đơn hàng";
+            if (callback != null) callback.onFailure(msg);
+        });
     }
 }
